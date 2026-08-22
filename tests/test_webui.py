@@ -168,6 +168,19 @@ class CardPreviewTests(unittest.TestCase):
         self.assertIn('id="preview-back-word"', html)
         self.assertIn("function setPreviewSide", javascript)
 
+    def test_static_template_preview_is_available_before_generation(self):
+        project_root = Path(__file__).parents[1]
+        html = (project_root / "generator" / "webui" / "templates" / "index.html").read_text()
+        javascript = (project_root / "generator" / "webui" / "static" / "app.js").read_text()
+        sample_image = project_root / "generator" / "webui" / "static" / "classic-template-sample.svg"
+
+        self.assertIn('id="template-preview-button"', html)
+        self.assertIn('id="preview-template"', html)
+        self.assertIn("Статичный пример макета", html)
+        self.assertIn("const previewTemplates", javascript)
+        self.assertIn("function openTemplatePreview", javascript)
+        self.assertTrue(sample_image.is_file())
+
 
 class OpenAIModelSettingsTests(unittest.TestCase):
     def tearDown(self):

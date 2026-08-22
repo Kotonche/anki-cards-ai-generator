@@ -3,6 +3,7 @@ const state = {
     job: null,
     pollTimer: null,
     previewSide: "front",
+    previewMode: "template",
 };
 
 const terminalJobStatuses = new Set(["completed", "completed_with_errors", "cancelled", "error"]);
@@ -41,6 +42,18 @@ const cardCostAssumptions = {
     ttsPerMillionCharacters: 30,
     defaultWordCharacters: 12,
     ttsPaddingCharacters: 4,
+};
+const previewTemplates = {
+    classic: {
+        name: "Классический",
+        description: "Изображение, контекст с пропусками, словарь и аудио",
+        sample: {
+            word: "free will",
+            card_text: "Something that allows people to make choices independently is known as ____ ___. Philosophers debate whether ____ ___ truly exists or whether our decisions are predetermined.",
+            image_url: "/static/classic-template-sample.svg",
+            dictionary_url: "https://dictionary.cambridge.org/dictionary/english/free-will",
+        },
+    },
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -404,31 +417,28 @@ function setPreviewSide(side) {
         : "Показать оборотную сторону";
 }
 
-function setPreviewImage(card, side) {
+function setPreviewImage(source, side) {
     const wrap = $(`#preview-${side}-image-wrap`);
     const image = $(`#preview-${side}-image`);
-    wrap.hidden = !card.has_image;
+    wrap.hidden = !source;
     image.removeAttribute("src");
-    if (card.has_image && state.job) {
-        image.src = `/api/jobs/${state.job.id}/cards/${card.id}/media/image`;
-    }
+    if (source) image.src = source;
 }
 
-function openPreview(card) {
+function populatePreview(card, {imageSource = null, audioSource = null, showAudioPlaceholder = false, note = ""} = {}) {
     const cardText = card.card_text || "Текст ещё не создан";
     $("#preview-front-text").textContent = cardText;
     $("#preview-back-text").textContent = cardText;
     $("#preview-back-word").textContent = card.word;
-    setPreviewImage(card, "front");
-    setPreviewImage(card, "back");
+    setPreviewImage(imageSource, "front");
+    setPreviewImage(imageSource, "back");
 
     const audio = $("#preview-audio");
     audio.pause();
     audio.removeAttribute("src");
-    audio.hidden = !card.has_audio;
-    if (card.has_audio && state.job) {
-        audio.src = `/api/jobs/${state.job.id}/cards/${card.id}/media/audio`;
-    }
+    audio.hidden = !audioSource;
+    if (audioSource) audio.src = audioSource;
+    $("#preview-audio-placeholder").hidden = !showAudioPlaceholder;
 
     const dictionary = $("#preview-dictionary");
     const safeUrl = card.dictionary_url && /^https?:\/\//.test(card.dictionary_url);
@@ -436,12 +446,35 @@ function openPreview(card) {
     if (safeUrl) dictionary.href = card.dictionary_url;
     else dictionary.removeAttribute("href");
 
+    $("#preview-model-note").textContent = note;
+    setPreviewSide("front");
+    if (!$("#preview-dialog").open) $("#preview-dialog").showModal();
+}
+
+function openTemplatePreview() {
+    state.previewMode = "template";
+    const template = previewTemplates[$("#preview-template").value] || previewTemplates.classic;
+    populatePreview(template.sample, {
+        imageSource: template.sample.image_url,
+        showAudioPlaceholder: true,
+        note: `Статичный пример · ${template.description}`,
+    });
+}
+
+function openPreview(card) {
+    state.previewMode = "generated";
+    const imageSource = card.has_image && state.job
+        ? `/api/jobs/${state.job.id}/cards/${card.id}/media/image`
+        : null;
+    const audioSource = card.has_audio && state.job
+        ? `/api/jobs/${state.job.id}/cards/${card.id}/media/audio`
+        : null;
+
     const modelName = state.job?.settings?.card_model || "Basic (type in the answer)";
-    $("#preview-model-note").textContent = modelName === "Basic (type in the answer)"
+    const note = modelName === "Basic (type in the answer)"
         ? "Приближённый вид стандартного Basic (type in the answer)"
         : `Поля карточки; итоговое оформление зависит от шаблона «${modelName}»`;
-    setPreviewSide("front");
-    $("#preview-dialog").showModal();
+    populatePreview(card, {imageSource, audioSource, note});
 }
 
 function closePreview() {
@@ -485,6 +518,10 @@ $("#example-button").addEventListener("click", () => {
 $("#parse-button").addEventListener("click", parseInput);
 $("#start-button").addEventListener("click", startJob);
 $("#cancel-button").addEventListener("click", cancelJob);
+$("#template-preview-button").addEventListener("click", openTemplatePreview);
+$("#preview-template").addEventListener("change", () => {
+    if (state.previewMode === "template") openTemplatePreview();
+});
 document.querySelectorAll("[data-preview-side]").forEach((button) => {
     button.addEventListener("click", () => setPreviewSide(button.dataset.previewSide));
 });
