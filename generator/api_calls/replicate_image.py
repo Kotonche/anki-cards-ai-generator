@@ -1,12 +1,8 @@
 import logging
 
 import replicate
-from openai import OpenAI
 
 from ..config import Config
-from ..entities import WordWithContext
-
-client = OpenAI()
 
 
 def replicate_generate_image(prompt: str) -> str:

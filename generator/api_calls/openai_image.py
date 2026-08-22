@@ -2,13 +2,12 @@ import logging
 from openai import OpenAI
 
 from ..config import Config
-from ..entities import WordWithContext
-
-client = OpenAI()
 
 
 def chat_generate_image(prompt: str) -> str:
     logging.debug(f"DALLE image generation prompt [{prompt}]")
+
+    client = OpenAI(api_key=Config.OPENAI_API_KEY)
 
     response = client.images.generate(
         model="dall-e-3",

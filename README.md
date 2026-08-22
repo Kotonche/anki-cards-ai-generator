@@ -42,6 +42,27 @@ The synchronization is very straightforward, and is described [here](https://doc
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/valeriizhyla)
 ## Usage
 
+### Local web interface
+
+The browser interface runs only on your computer and keeps API keys in the Python process. It supports pasted word lists and CSV, TXT, XLS, and XLSX files, displays card progress, reuses complete generated files, and can import the result through AnkiConnect.
+
+1. Create and activate a Python 3.10+ virtual environment.
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Start Anki with AnkiConnect installed if you want to import cards.
+4. Start the interface:
+   ```bash
+   python -m generator.webui.server
+   ```
+
+The page opens at [http://127.0.0.1:8766](http://127.0.0.1:8766). You can also use `run_web_ui.sh` on macOS/Linux or `run_web_ui.cmd` on Windows.
+
+The first web version runs one generation job at a time. Closing the browser does not stop the active job, but restarting the Python server clears the in-memory job list. Generated JSON, PNG, and MP3 files remain in the processing directory and will be reused on the next run.
+
+### Command line
+
 Syntax:  
 ```bash
 read-generate-import.py input_file processing_directory \
@@ -217,4 +238,3 @@ A: Probably you are using a CSV file, which is not separated with semicolon (thi
 *****
 Q: I'm getting an error "model was not found: Basic (type in the answer)".  
 A: Probably you are using some old version of Anki, non-english client or have deleted the default models. You can set your custom model name using --card_model option. More about [Anki Note Types](https://docs.ankiweb.net/getting-started.html#note-types)
-

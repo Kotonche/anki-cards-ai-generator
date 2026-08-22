@@ -102,7 +102,8 @@ def invoke(action, params=None):
     if params is None:
         params = {}
     request = {'action': action, 'version': 6, 'params': params}
-    response = requests.post(Config.ANKI_CONNECT_URL, json=request)
+    response = requests.post(Config.ANKI_CONNECT_URL, json=request, timeout=15)
+    response.raise_for_status()
     return response.json()
 
 

@@ -13,12 +13,12 @@ from generator.input.file_operations import generate_card_data_path
 
 def check_anki_connect():
     try:
-        response = requests.get(Config.ANKI_CONNECT_URL)
+        response = requests.get(Config.ANKI_CONNECT_URL, timeout=5)
         if response.status_code == 200:
             logging.info("AnkiConnect is running")
         else:
             raise IOError("AnkiConnect is installed but returned a non-OK status code:", response.status_code)
-    except requests.exceptions.ConnectionError:
+    except requests.exceptions.RequestException:
         raise IOError("Failed to connect to AnkiConnect. It might be not running")
 
 

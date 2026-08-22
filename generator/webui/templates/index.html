@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>Anki Card Studio</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/app.js" defer></script>
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="/" aria-label="Anki Card Studio">
+            <span class="brand-mark">A</span>
+            <span>
+                <strong>Anki Card Studio</strong>
+                <small>Локальный генератор карточек</small>
+            </span>
+        </a>
+        <div class="health-row" aria-live="polite">
+            <span id="dependency-status" class="status-pill status-neutral">Проверка Python…</span>
+            <span id="anki-status" class="status-pill status-neutral">Проверка Anki…</span>
+        </div>
+    </header>
+
+    <main class="page-shell">
+        <section class="intro">
+            <div>
+                <p class="eyebrow">Работает только на вашем компьютере</p>
+                <h1>Превратите список слов<br>в готовую колоду Anki</h1>
+                <p class="intro-copy">Добавьте слова, настройте генерацию и следите за каждой карточкой прямо в браузере.</p>
+            </div>
+            <div class="flow-strip" aria-label="Этапы обработки">
+                <span><b>01</b> Слова</span>
+                <i>→</i>
+                <span><b>02</b> Генерация</span>
+                <i>→</i>
+                <span><b>03</b> Anki</span>
+            </div>
+        </section>
+
+        <div id="global-error" class="alert alert-error" role="alert" hidden></div>
+
+        <section class="workspace-grid">
+            <article class="panel input-panel">
+                <div class="panel-heading">
+                    <div>
+                        <p class="step-label">Шаг 1</p>
+                        <h2>Добавьте слова</h2>
+                    </div>
+                    <button id="example-button" class="button button-quiet" type="button">Пример</button>
+                </div>
+
+                <label class="drop-zone" for="file-input">
+                    <input id="file-input" type="file" accept=".csv,.txt,.xls,.xlsx">
+                    <span class="drop-icon">↥</span>
+                    <strong>Выберите CSV, TXT или Excel</strong>
+                    <small id="file-label">До 10 МБ · колонки word и context</small>
+                </label>
+
+                <div class="or-divider"><span>или вставьте вручную</span></div>
+
+                <label class="field">
+                    <span>Слова и контекст</span>
+                    <textarea id="words-input" rows="8" placeholder="purchasing power;economics&#10;consciousness;philosophy&#10;free will"></textarea>
+                    <small>Одно слово на строку. Контекст можно добавить после точки с запятой.</small>
+                </label>
+
+                <button id="parse-button" class="button button-secondary button-wide" type="button">Подготовить карточки</button>
+            </article>
+
+            <article class="panel settings-panel">
+                <div class="panel-heading">
+                    <div>
+                        <p class="step-label">Шаг 2</p>
+                        <h2>Настройте генерацию</h2>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <label class="field">
+                        <span>Язык</span>
+                        <select id="language">
+                            <option value="english">English</option>
+                            <option value="german">Deutsch</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>Уровень</span>
+                        <select id="level">
+                            <option>A1</option><option>A2</option><option>B1</option><option>B2</option>
+                            <option selected>C1</option><option>C2</option>
+                        </select>
+                    </label>
+                    <label class="field field-full">
+                        <span>Название колоды</span>
+                        <input id="deck-name" value="AI Vocabulary" autocomplete="off">
+                    </label>
+                    <label class="field">
+                        <span>Изображения</span>
+                        <select id="image-mode">
+                            <option value="openai">OpenAI</option>
+                            <option value="replicate">Replicate</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>Дубликаты</span>
+                        <select id="duplicate-policy">
+                            <option value="skip">Пропускать</option>
+                            <option value="replace">Заменять</option>
+                            <option value="allow">Разрешать</option>
+                        </select>
+                    </label>
+                    <label class="field field-full">
+                        <span>OpenAI API key</span>
+                        <input id="openai-key" type="password" placeholder="Оставьте пустым, чтобы использовать .env" autocomplete="off">
+                    </label>
+                    <div id="replicate-settings" class="subform field-full" hidden>
+                        <label class="field">
+                            <span>Replicate API key</span>
+                            <input id="replicate-key" type="password" placeholder="Можно использовать .env" autocomplete="off">
+                        </label>
+                        <label class="field">
+                            <span>Replicate model URL</span>
+                            <input id="replicate-model" placeholder="owner/model:version" autocomplete="off">
+                        </label>
+                    </div>
+                    <details class="advanced field-full">
+                        <summary>Пути и расширенные настройки</summary>
+                        <div class="advanced-content">
+                            <label class="field">
+                                <span>Рабочая папка</span>
+                                <input id="processing-directory" autocomplete="off">
+                            </label>
+                            <label class="field">
+                                <span>Папка Anki media</span>
+                                <input id="anki-media-directory" autocomplete="off">
+                            </label>
+                            <label class="field">
+                                <span>Тип заметки Anki</span>
+                                <input id="card-model" value="Basic (type in the answer)" autocomplete="off">
+                            </label>
+                        </div>
+                    </details>
+                </div>
+
+                <div class="toggle-list">
+                    <label class="toggle-row">
+                        <input id="create-deck" type="checkbox" checked>
+                        <span><strong>Создать колоду, если её нет</strong><small>Через локальный AnkiConnect</small></span>
+                    </label>
+                    <label class="toggle-row">
+                        <input id="import-after" type="checkbox" checked>
+                        <span><strong>Импортировать после генерации</strong><small>Иначе файлы останутся в рабочей папке</small></span>
+                    </label>
+                </div>
+            </article>
+        </section>
+
+        <section id="queue-section" class="panel queue-panel" hidden>
+            <div class="queue-header">
+                <div>
+                    <p class="step-label">Шаг 3</p>
+                    <h2>Очередь карточек <span id="card-count" class="count-badge">0</span></h2>
+                </div>
+                <div class="queue-actions">
+                    <button id="cancel-button" class="button button-danger" type="button" hidden>Остановить</button>
+                    <button id="start-button" class="button button-primary" type="button">Создать карточки</button>
+                </div>
+            </div>
+
+            <div id="progress-area" class="progress-area" hidden>
+                <div class="progress-copy">
+                    <strong id="job-message">Подготовка…</strong>
+                    <span id="progress-label">0 из 0</span>
+                </div>
+                <progress id="job-progress" max="100" value="0">0%</progress>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Слово</th><th>Контекст</th><th>Статус</th><th><span class="visually-hidden">Действия</span></th></tr>
+                    </thead>
+                    <tbody id="cards-body"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <dialog id="preview-dialog" class="preview-dialog">
+        <div class="dialog-header">
+            <div>
+                <p class="step-label">Предпросмотр</p>
+                <h2 id="preview-word">Карточка</h2>
+            </div>
+            <button id="close-preview" class="icon-button" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <div class="preview-layout">
+            <div id="preview-image-wrap" class="preview-image-wrap" hidden>
+                <img id="preview-image" alt="Сгенерированная иллюстрация">
+            </div>
+            <div>
+                <h3>Текст карточки</h3>
+                <p id="preview-text" class="generated-text"></p>
+                <a id="preview-dictionary" class="text-link" target="_blank" rel="noreferrer" hidden>Открыть словарь ↗</a>
+                <audio id="preview-audio" controls hidden></audio>
+            </div>
+        </div>
+    </dialog>
+</body>
+</html>

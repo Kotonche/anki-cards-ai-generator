@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os
+import platform
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -142,6 +143,9 @@ class Config:
         if os.name == "nt":
             user_profile = os.getenv('USERPROFILE', 'C:\\Users\\Default')
             cls.ANKI_MEDIA_DIRECTORY = os.path.join(user_profile, 'AppData', 'Roaming', 'Anki2', 'User 1', 'collection.media')
+        elif platform.system() == "Darwin":
+            home_path = os.path.expanduser('~')
+            cls.ANKI_MEDIA_DIRECTORY = os.path.join(home_path, 'Library', 'Application Support', 'Anki2', 'User 1', 'collection.media')
         elif os.name == 'posix':
             home_path = os.path.expanduser('~')
             cls.ANKI_MEDIA_DIRECTORY = os.path.join(home_path, '.local', 'share', 'Anki2', 'User 1', 'collection.media')
@@ -177,5 +181,4 @@ class Config:
                 else:
                     cls.REPLICATE_API_KEY = replicate_api_key_env
             logging.info(f"Replicate API key initialized")
-
 

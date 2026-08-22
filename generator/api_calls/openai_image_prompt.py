@@ -4,8 +4,6 @@ from openai import OpenAI
 from ..config import Config
 from ..entities import WordWithContext
 
-client = OpenAI()
-
 anki_prompt_preamble = """I want you to act like a professional Anki card maker, able to create DALLE 3 prompts for the words I provide.
 Each image prompt should be detailed and specific to ensure that the resulting image accurately represents the concept or item you need to portray. 
 
