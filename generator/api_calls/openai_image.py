@@ -1,6 +1,7 @@
 import logging
 from openai import OpenAI
 
+from ..api_costs import record_image_response
 from ..config import Config
 
 
@@ -15,6 +16,13 @@ def chat_generate_image(prompt: str) -> str:
         size=Config.OPENAI_IMAGE_SIZE,
         quality=Config.OPENAI_IMAGE_QUALITY,
         n=1,
+    )
+    record_image_response(
+        response,
+        Config.OPENAI_IMAGE_MODEL,
+        Config.OPENAI_IMAGE_SIZE,
+        Config.OPENAI_IMAGE_QUALITY,
+        prompt,
     )
 
     generated_image = response.data[0]

@@ -6,13 +6,16 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
+from generator import generate_cards
 from generator.api_calls import openai_image, openai_image_prompt, openai_response, openai_text
+from generator.api_costs import record_audio_speech
 from generator.api_calls.text_prompt_by_language import prompt_by_language
 from generator.config import A1, A2, C1, Config, GREEK
-from generator.entities import WordWithContext
+from generator.entities import CardRawDataV1, WordWithContext, serialize_to_json
 from generator.input.file_operations import download_and_save_image
 from generator.webui.input_parser import InputError, parse_text, parse_uploaded_file
 from generator.webui.jobs import JobError, JobManager
+from generator.webui import runner
 from generator.webui.server import create_server_with_fallback
 
 
@@ -84,6 +87,88 @@ class JobManagerTests(unittest.TestCase):
     def test_unknown_job_is_rejected(self):
         with self.assertRaises(JobError):
             self.manager.snapshot("missing")
+
+    def test_new_job_starts_with_an_empty_batch_cost(self):
+        job = self.manager.create(
+            [{"word": "hello"}],
+            {"processing_directory": "/tmp/cards"},
+        )
+
+        self.assertEqual(job["cost"]["total_usd"], 0)
+        self.assertEqual(job["cost"]["generated_items"], 0)
+        self.assertTrue(job["cost"]["complete"])
+
+
+class BatchCostIntegrationTests(unittest.TestCase):
+    @staticmethod
+    def _classic_card():
+        return CardRawDataV1(
+            word="hello",
+            card_text="A greeting is _____.",
+            image_prompt="A friendly greeting",
+            image_url="openai:gpt-image-2",
+            image_path="/tmp/hello.png",
+            audio_path="/tmp/hello.mp3",
+        )
+
+    def test_runner_adds_api_cost_to_completed_job(self):
+        manager = JobManager()
+        with tempfile.TemporaryDirectory() as processing_directory:
+            job = manager.create(
+                [{"word": "hello"}],
+                {
+                    "processing_directory": processing_directory,
+                    "import_after_generation": False,
+                },
+            )
+
+            def generated_card(_word):
+                record_audio_speech("x" * 10, "tts-1-hd")
+                return self._classic_card()
+
+            with (
+                mock.patch.object(runner, "_configure"),
+                mock.patch.object(runner, "_load_cached_card", return_value=None),
+                mock.patch.object(generate_cards, "create_card_for_word", side_effect=generated_card),
+            ):
+                runner.run_generation_job(manager, job["id"])
+
+        snapshot = manager.snapshot(job["id"])
+        self.assertEqual(snapshot["status"], "completed")
+        self.assertEqual(snapshot["cost"]["generated_items"], 1)
+        self.assertAlmostEqual(snapshot["cost"]["total_usd"], 0.0003)
+        self.assertAlmostEqual(snapshot["cost"]["average_usd"], 0.0003)
+
+    def test_greek_job_ignores_legacy_cache_schema(self):
+        previous_language = Config.LANGUAGE
+        Config.LANGUAGE = GREEK
+        try:
+            with tempfile.TemporaryDirectory() as processing_directory:
+                image_path = Path(processing_directory) / "hello.png"
+                audio_path = Path(processing_directory) / "hello.mp3"
+                image_path.write_bytes(b"image")
+                audio_path.write_bytes(b"audio")
+                legacy = CardRawDataV1(
+                    word="hello",
+                    card_text="legacy",
+                    image_prompt="prompt",
+                    image_url="url",
+                    image_path=str(image_path),
+                    audio_path=str(audio_path),
+                )
+                (Path(processing_directory) / "hello.json").write_text(
+                    serialize_to_json(legacy),
+                    encoding="utf-8",
+                )
+
+                cached = runner._load_cached_card(
+                    processing_directory,
+                    WordWithContext("hello", ""),
+                )
+        finally:
+            Config.LANGUAGE = previous_language
+
+        self.assertIsNone(cached)
 
 
 class GreekLanguageTests(unittest.TestCase):
@@ -239,6 +324,18 @@ class OpenAIModelSettingsTests(unittest.TestCase):
         self.assertIn("function calculateCardCost", javascript)
         self.assertIn("textInputTokens: 2500", javascript)
         self.assertIn("syncCardCostEstimate", javascript)
+
+    def test_web_interface_shows_total_batch_cost(self):
+        project_root = Path(__file__).parents[1]
+        html = (project_root / "generator" / "webui" / "templates" / "index.html").read_text()
+        javascript = (project_root / "generator" / "webui" / "static" / "app.js").read_text()
+
+        self.assertIn('id="batch-cost-summary"', html)
+        self.assertIn('id="batch-cost-total"', html)
+        self.assertIn('id="batch-cost-average"', html)
+        self.assertIn("TOTAL за батч", html)
+        self.assertIn("function renderBatchCost", javascript)
+        self.assertIn("state.job.cost", javascript)
 
     def test_selected_model_is_used_for_card_text_and_image_prompt(self):
         response = SimpleNamespace(output_text="generated")

@@ -431,6 +431,41 @@ function renderQueue() {
     }
 }
 
+function renderBatchCost(cost) {
+    const summary = $("#batch-cost-summary");
+    if (!cost) {
+        summary.hidden = true;
+        return;
+    }
+
+    summary.hidden = false;
+    const hasRequests = cost.request_count > 0;
+    const totalPrefix = !cost.complete ? "≥ " : (hasRequests ? "≈ " : "");
+    $("#batch-cost-total").textContent = `${totalPrefix}${formatEstimatedCost(cost.total_usd || 0)}`;
+
+    const generated = cost.generated_items || 0;
+    const cached = cost.cached_items || 0;
+    const skipped = cost.skipped_items || 0;
+    const averagePrefix = cost.complete ? "≈ " : "≥ ";
+    $("#batch-cost-average").textContent = generated
+        ? `${averagePrefix}${formatEstimatedCost(cost.average_usd || 0)} / слово`
+        : "—";
+    $("#batch-cost-counts").textContent = [
+        `${generated} новых`,
+        `${cached} из кэша`,
+        ...(skipped ? [`${skipped} пропущено`] : []),
+    ].join(" · ");
+
+    if (cost.complete) {
+        $("#batch-cost-note").textContent = hasRequests
+            ? "По фактическому API usage и стандартным тарифам; сумма может отличаться от биллинга"
+            : "Новых платных API-вызовов пока не было";
+    } else {
+        const unknown = (cost.unknown_components || []).join(", ");
+        $("#batch-cost-note").textContent = `Не включено в TOTAL: ${unknown}`;
+    }
+}
+
 function renderJob() {
     if (!state.job) {
         $("#progress-area").hidden = true;
@@ -447,6 +482,7 @@ function renderJob() {
     $("#job-message").textContent = state.job.message;
     $("#progress-label").textContent = `${state.job.progress.finished} из ${state.job.progress.total}`;
     $("#job-progress").value = state.job.progress.percent;
+    renderBatchCost(state.job.cost);
     const running = state.job.status === "running";
     $("#cancel-button").hidden = !running;
     $("#start-button").hidden = running || terminalJobStatuses.has(state.job.status);

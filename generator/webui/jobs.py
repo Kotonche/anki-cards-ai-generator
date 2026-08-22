@@ -3,6 +3,8 @@ import threading
 import uuid
 from datetime import datetime, timezone
 
+from generator.api_costs import empty_cost_summary
+
 
 TERMINAL_CARD_STATUSES = {"generated", "imported", "skipped", "error"}
 TERMINAL_JOB_STATUSES = {"completed", "completed_with_errors", "cancelled", "error"}
@@ -56,6 +58,7 @@ class JobManager:
             "message": "Задание готово к запуску",
             "settings": copy.deepcopy(settings),
             "cards": normalized_cards,
+            "cost": empty_cost_summary(),
             "cancel_requested": False,
         }
         with self._lock:

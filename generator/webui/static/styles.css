@@ -160,6 +160,16 @@ progress { width: 100%; height: 8px; border: 0; border-radius: 99px; overflow: h
 progress::-webkit-progress-bar { background: #dfe2db; }
 progress::-webkit-progress-value { background: var(--green); }
 progress::-moz-progress-bar { background: var(--green); }
+.batch-cost-summary { display: grid; grid-template-columns: minmax(180px, 0.8fr) minmax(280px, 1.2fr); gap: 18px 28px; margin-top: 18px; padding: 18px 20px; border-radius: 15px; color: white; background: var(--green); }
+.batch-cost-total > span, .batch-cost-total > strong, .batch-cost-total > small { display: block; }
+.batch-cost-total > span { color: #c7d9ce; font-size: 9px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; }
+.batch-cost-total > strong { margin-top: 6px; color: var(--green-bright); font: 600 31px/1 Georgia, serif; letter-spacing: -0.03em; }
+.batch-cost-total > small { max-width: 390px; margin-top: 8px; color: #c7d9ce; font-size: 8px; line-height: 1.45; }
+.batch-cost-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-content: center; }
+.batch-cost-metrics > div { padding: 12px 14px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 11px; background: rgba(255, 255, 255, 0.06); }
+.batch-cost-metrics span, .batch-cost-metrics strong { display: block; }
+.batch-cost-metrics span { color: #b9cfc0; font-size: 8px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.batch-cost-metrics strong { margin-top: 6px; font-size: 11px; line-height: 1.4; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 17px 20px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
@@ -248,6 +258,7 @@ tbody tr:last-child td { border-bottom: 0; }
     #template-preview-button { width: 100%; }
     .form-grid, .subform, .provider-fields { grid-template-columns: 1fr; }
     .card-cost-estimate { grid-template-columns: 1fr; }
+    .batch-cost-summary, .batch-cost-metrics { grid-template-columns: 1fr; }
     .queue-header { align-items: flex-start; flex-direction: column; }
     .queue-actions { width: 100%; }
     .queue-actions .button { flex: 1; }

@@ -279,6 +279,23 @@
                     <span id="progress-label">0 из 0</span>
                 </div>
                 <progress id="job-progress" max="100" value="0">0%</progress>
+                <section id="batch-cost-summary" class="batch-cost-summary" aria-label="Стоимость текущего батча" hidden>
+                    <div class="batch-cost-total">
+                        <span>TOTAL за батч</span>
+                        <strong id="batch-cost-total">$0.0000</strong>
+                        <small id="batch-cost-note">Расчёт появится во время обработки</small>
+                    </div>
+                    <div class="batch-cost-metrics">
+                        <div>
+                            <span>В среднем</span>
+                            <strong id="batch-cost-average">—</strong>
+                        </div>
+                        <div>
+                            <span>Обработки</span>
+                            <strong id="batch-cost-counts">—</strong>
+                        </div>
+                    </div>
+                </section>
             </div>
 
             <div class="table-wrap">

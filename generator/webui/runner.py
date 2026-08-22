@@ -6,6 +6,7 @@ from pathlib import Path
 
 def _load_cached_card(processing_directory, word_with_context):
     from generator.entities import GreekVocabularyDataV1, card_data_from_dict
+    from generator.config import Config, GREEK
     from generator.input.file_operations import (
         all_files_exist_and_are_not_empty,
         generate_card_data_path,
@@ -19,6 +20,11 @@ def _load_cached_card(processing_directory, word_with_context):
         data = json.loads(card_path.read_text(encoding="utf-8"))
         card = card_data_from_dict(data)
     except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return None
+
+    is_greek_card = isinstance(card, GreekVocabularyDataV1)
+    if (Config.LANGUAGE == GREEK) != is_greek_card:
+        logging.info("Ignoring cached card with a schema for another language")
         return None
 
     required_files = [card.image_path, card.audio_path]
@@ -151,58 +157,82 @@ def run_generation_job(manager, job_id: str) -> None:
         _prepare_anki(settings)
 
     from generator import generate_cards
+    from generator.api_costs import ApiCostTracker, tracking_api_costs
     from generator.config import Config
     from generator.entities import WordWithContext
 
     cards = manager.cards_for_runner(job_id)
     errors = 0
+    generated_items = 0
+    cached_items = 0
+    skipped_items = 0
+    cost_tracker = ApiCostTracker()
 
-    for index, card_record in enumerate(cards):
-        if manager.is_cancel_requested(job_id):
-            manager.set_job(job_id, status="cancelled", message="Задание остановлено")
-            return
+    def cost_summary():
+        return cost_tracker.summary(
+            generated_items=generated_items,
+            cached_items=cached_items,
+            skipped_items=skipped_items,
+        )
 
-        card_id = card_record["id"]
-        word = card_record["word"]
-        word_with_context = WordWithContext(word, card_record["context"])
-        manager.update_card(job_id, card_id, status="generating", message="Подготовка карточки")
-        manager.set_job(job_id, message=f"Обработка: {word}")
-        generated_this_card = False
+    with tracking_api_costs(cost_tracker):
+        for index, card_record in enumerate(cards):
+            if manager.is_cancel_requested(job_id):
+                manager.set_job(
+                    job_id,
+                    status="cancelled",
+                    message="Задание остановлено",
+                    cost=cost_summary(),
+                )
+                return
 
-        try:
-            if should_import:
-                duplicate_message = _handle_duplicate(settings, word)
-                if duplicate_message:
-                    manager.update_card(job_id, card_id, status="skipped", message=duplicate_message)
-                    continue
+            card_id = card_record["id"]
+            word = card_record["word"]
+            word_with_context = WordWithContext(word, card_record["context"])
+            manager.update_card(job_id, card_id, status="generating", message="Подготовка карточки")
+            manager.set_job(job_id, message=f"Обработка: {word}")
+            generated_this_card = False
 
-            raw_card = _load_cached_card(processing_directory, word_with_context)
-            from_cache = raw_card is not None
-            if raw_card is None:
-                manager.update_card(job_id, card_id, message="Генерация текста, изображения и аудио")
-                raw_card = generate_cards.create_card_for_word(word_with_context)
-                generated_this_card = True
+            try:
+                if should_import:
+                    duplicate_message = _handle_duplicate(settings, word)
+                    if duplicate_message:
+                        skipped_items += 1
+                        manager.update_card(job_id, card_id, status="skipped", message=duplicate_message)
+                        continue
 
-            if should_import:
-                manager.update_card(job_id, card_id, status="importing", message="Импорт в Anki")
-                _import_card(raw_card)
-                message = "Импортирована из сохранённых файлов" if from_cache else "Создана и импортирована"
-                status = "imported"
-            else:
-                message = "Загружена из сохранённых файлов" if from_cache else "Материалы созданы"
-                status = "generated"
+                raw_card = _load_cached_card(processing_directory, word_with_context)
+                from_cache = raw_card is not None
+                if raw_card is None:
+                    generated_items += 1
+                    generated_this_card = True
+                    manager.update_card(job_id, card_id, message="Генерация текста, изображения и аудио")
+                    raw_card = generate_cards.create_card_for_word(word_with_context)
+                else:
+                    cached_items += 1
 
-            manager.update_card(job_id, card_id, **_card_changes(raw_card, status, message))
-        except Exception as error:
-            logging.exception("Failed to process card %s", word)
-            manager.update_card(job_id, card_id, status="error", message=str(error))
-            errors += 1
+                if should_import:
+                    manager.update_card(job_id, card_id, status="importing", message="Импорт в Anki")
+                    _import_card(raw_card)
+                    message = "Импортирована из сохранённых файлов" if from_cache else "Создана и импортирована"
+                    status = "imported"
+                else:
+                    message = "Загружена из сохранённых файлов" if from_cache else "Материалы созданы"
+                    status = "generated"
 
-        has_more_cards = index < len(cards) - 1
-        if has_more_cards and generated_this_card and Config.IMAGE_GENERATION_MODE == "openai":
-            manager.set_job(job_id, message="Ожидание лимита генерации изображений")
-            time.sleep(Config.SECONDS_WAIT_BETWEEN_IMAGE_CALLS)
+                manager.update_card(job_id, card_id, **_card_changes(raw_card, status, message))
+            except Exception as error:
+                logging.exception("Failed to process card %s", word)
+                manager.update_card(job_id, card_id, status="error", message=str(error))
+                errors += 1
+            finally:
+                manager.set_job(job_id, cost=cost_summary())
+
+            has_more_cards = index < len(cards) - 1
+            if has_more_cards and generated_this_card and Config.IMAGE_GENERATION_MODE == "openai":
+                manager.set_job(job_id, message="Ожидание лимита генерации изображений")
+                time.sleep(Config.SECONDS_WAIT_BETWEEN_IMAGE_CALLS)
 
     status = "completed_with_errors" if errors else "completed"
     message = "Готово, но некоторые карточки завершились ошибкой" if errors else "Все карточки обработаны"
-    manager.set_job(job_id, status=status, message=message)
+    manager.set_job(job_id, status=status, message=message, cost=cost_summary())

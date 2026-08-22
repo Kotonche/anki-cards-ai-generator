@@ -45,7 +45,7 @@ The synchronization is very straightforward, and is described [here](https://doc
 
 ### Local web interface
 
-The browser interface runs only on your computer and keeps API keys in the Python process. It lets you enter an OpenAI API key and choose the text model, supports pasted word lists and CSV, TXT, XLS, and XLSX files, includes an always-available static template preview plus front/back previews for generated cards, reuses complete generated files, and can import the result through AnkiConnect.
+The browser interface runs only on your computer and keeps API keys in the Python process. It lets you enter an OpenAI API key and choose the text model, supports pasted word lists and CSV, TXT, XLS, and XLSX files, includes an always-available static template preview plus front/back previews for generated cards, reuses complete generated files, and can import the result through AnkiConnect. During a batch it also shows the estimated total API spend and average cost per newly processed word; cached cards add no new API cost.
 
 1. Create and activate a Python 3.10+ virtual environment.
 2. Install dependencies:
@@ -170,7 +170,7 @@ GPT Image 2 is billed by tokens. With the current 1024×1024 low-quality setting
 - These images boost (at least mine) learning process a lot
 - Purpose-generated images work especially well for abstract vocabulary in this use case
 
-Text generation price depends on the selected model. TTS-1 HD costs $30 per 1M characters ($0.03 per 1,000 characters); English and German voice the target word, while Greek voices both the word with its article and the example phrase. Current rates and a live per-card estimate are shown directly in the web interface and on the [official pricing page](https://developers.openai.com/api/docs/pricing). The estimate uses typical token counts, excludes prompt caching and updates for the selected text model, image provider and average target-word length.
+Text generation price depends on the selected model. TTS-1 HD costs $30 per 1M characters ($0.03 per 1,000 characters); English and German voice the target word, while Greek voices both the word with its article and the example phrase. Current rates, a pre-generation estimate, and the running batch total are shown directly in the web interface and on the [official pricing page](https://developers.openai.com/api/docs/pricing). The batch total uses returned API token usage, actual TTS character counts, and an image estimate when token usage is unavailable. It is an estimate rather than an OpenAI billing statement; unknown third-party provider costs are explicitly excluded.
 
 Alternatively, you can use a custom model for image generation from Replicate, potentially cutting the costs of image generation to a fraction of cent. 
 

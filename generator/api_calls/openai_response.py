@@ -2,6 +2,7 @@ import json
 
 from openai import OpenAI
 
+from ..api_costs import record_text_response
 from ..config import Config
 
 
@@ -27,6 +28,7 @@ def generate_text(instructions: str, user_input: str, max_output_tokens: int) ->
     request = _request(instructions, user_input, max_output_tokens)
 
     response = client.responses.create(**request)
+    record_text_response(response, Config.TEXT_MODEL)
     generated_text = response.output_text
     if not generated_text:
         raise RuntimeError("OpenAI returned an empty text response")
@@ -52,6 +54,7 @@ def generate_structured_text(
     }
 
     response = client.responses.create(**request)
+    record_text_response(response, Config.TEXT_MODEL)
     if not response.output_text:
         raise RuntimeError("OpenAI returned an empty structured response")
     try:
