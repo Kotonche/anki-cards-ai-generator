@@ -102,6 +102,14 @@ async function parseInput() {
     }
 }
 
+function selectedTextModel() {
+    const selected = $("#text-model").value;
+    if (selected !== "__custom__") return selected;
+    const customModel = $("#custom-text-model").value.trim();
+    if (!customModel) throw new Error("Укажите ID модели OpenAI");
+    return customModel;
+}
+
 function settingsPayload() {
     return {
         language: $("#language").value,
@@ -111,7 +119,7 @@ function settingsPayload() {
         image_generation_mode: $("#image-mode").value,
         duplicate_policy: $("#duplicate-policy").value,
         openai_api_key: $("#openai-key").value.trim(),
-        text_model: $("#text-model").value.trim(),
+        text_model: selectedTextModel(),
         replicate_api_key: $("#replicate-key").value.trim(),
         replicate_model_url: $("#replicate-model").value.trim(),
         processing_directory: $("#processing-directory").value.trim(),
@@ -137,6 +145,12 @@ function syncLanguageLevels() {
     levelSelect.value = availableLevels.includes(previousLevel)
         ? previousLevel
         : defaultLevelByLanguage[language];
+}
+
+function syncCustomTextModel() {
+    const custom = $("#text-model").value === "__custom__";
+    $("#custom-text-model-field").hidden = !custom;
+    if (custom) $("#custom-text-model").focus();
 }
 
 async function startJob() {
@@ -341,6 +355,7 @@ $("#image-mode").addEventListener("change", (event) => {
     $("#replicate-settings").hidden = event.target.value !== "replicate";
 });
 $("#language").addEventListener("change", syncLanguageLevels);
+$("#text-model").addEventListener("change", syncCustomTextModel);
 $("#example-button").addEventListener("click", () => {
     $("#file-input").value = "";
     $("#file-label").textContent = "До 10 МБ · колонки word и context";
@@ -362,4 +377,5 @@ $("#preview-dialog").addEventListener("click", (event) => {
 
 loadHealth();
 syncLanguageLevels();
+syncCustomTextModel();
 restoreJob();

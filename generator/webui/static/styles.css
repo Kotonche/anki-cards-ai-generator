@@ -92,6 +92,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
 .provider-heading small, .provider-note { margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.45; }
 .provider-badge { flex: none; padding: 6px 8px; border-radius: 999px; color: var(--green); background: var(--green-soft); font-size: 10px; font-weight: 800; }
 .provider-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 17px; }
+.provider-custom-model { grid-column: 1 / -1; }
 .provider-note { display: block; margin-top: 11px; }
 .advanced { border: 1px solid var(--line); border-radius: 12px; }
 .advanced summary { padding: 13px 15px; font-size: 12px; font-weight: 800; }

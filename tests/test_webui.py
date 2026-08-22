@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from generator.api_calls import openai_image_prompt, openai_text
+from generator.api_calls import openai_image_prompt, openai_response, openai_text
 from generator.api_calls.text_prompt_by_language import prompt_by_language
 from generator.config import A1, A2, C1, Config, GREEK
 from generator.entities import WordWithContext
@@ -183,35 +183,42 @@ class OpenAIModelSettingsTests(unittest.TestCase):
 
         self.assertIn('id="openai-key"', html)
         self.assertIn('id="text-model"', html)
-        self.assertIn('list="text-model-options"', html)
-        self.assertIn('text_model: $("#text-model").value.trim()', javascript)
+        self.assertIn('value="gpt-5.6-luna"', html)
+        self.assertIn('value="gpt-5.6-terra"', html)
+        self.assertIn('value="gpt-5.6-sol"', html)
+        self.assertIn('id="custom-text-model"', html)
+        self.assertIn("text_model: selectedTextModel()", javascript)
 
     def test_selected_model_is_used_for_card_text_and_image_prompt(self):
-        response = SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="generated"))],
-        )
-        Config.TEXT_MODEL = "gpt-4.1-mini"
+        response = SimpleNamespace(output_text="generated")
+        Config.TEXT_MODEL = "gpt-5.6-luna"
         word = WordWithContext("hello", "greeting")
 
         with (
-            mock.patch.object(openai_text, "OpenAI") as text_client_class,
+            mock.patch.object(openai_response, "OpenAI") as client_class,
             mock.patch.object(openai_text.prompt_by_language, "get_system_prompt_by_language", return_value="prompt"),
         ):
-            text_client_class.return_value.chat.completions.create.return_value = response
+            client_class.return_value.responses.create.return_value = response
             openai_text.chat_generate_text(word)
-
-        with mock.patch.object(openai_image_prompt, "OpenAI") as prompt_client_class:
-            prompt_client_class.return_value.chat.completions.create.return_value = response
             openai_image_prompt.chat_generate_dalle_prompt(word, "card text")
 
-        self.assertEqual(
-            text_client_class.return_value.chat.completions.create.call_args.kwargs["model"],
-            "gpt-4.1-mini",
-        )
-        self.assertEqual(
-            prompt_client_class.return_value.chat.completions.create.call_args.kwargs["model"],
-            "gpt-4.1-mini",
-        )
+        calls = client_class.return_value.responses.create.call_args_list
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(all(call.kwargs["model"] == "gpt-5.6-luna" for call in calls))
+        self.assertTrue(all(call.kwargs["reasoning"] == {"effort": "low"} for call in calls))
+        self.assertTrue(all(call.kwargs["store"] is False for call in calls))
+
+    def test_non_reasoning_model_keeps_low_temperature(self):
+        Config.TEXT_MODEL = "gpt-4.1-mini"
+        response = SimpleNamespace(output_text="generated")
+
+        with mock.patch.object(openai_response, "OpenAI") as client_class:
+            client_class.return_value.responses.create.return_value = response
+            openai_response.generate_text("instructions", "input", 100)
+
+        request = client_class.return_value.responses.create.call_args.kwargs
+        self.assertEqual(request["temperature"], 0.2)
+        self.assertNotIn("reasoning", request)
 
 
 if __name__ == "__main__":

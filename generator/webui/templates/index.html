@@ -127,16 +127,29 @@
                             </label>
                             <label class="field">
                                 <span>Модель текста</span>
-                                <input id="text-model" type="text" list="text-model-options" value="gpt-4o" autocomplete="off" spellcheck="false">
-                                <datalist id="text-model-options">
-                                    <option value="gpt-4o"></option>
-                                    <option value="gpt-4o-mini"></option>
-                                    <option value="gpt-4.1"></option>
-                                    <option value="gpt-4.1-mini"></option>
-                                </datalist>
+                                <select id="text-model">
+                                    <optgroup label="GPT-5.6 · актуальные">
+                                        <option value="gpt-5.6-luna" selected>GPT-5.6 Luna · экономичная</option>
+                                        <option value="gpt-5.6-terra">GPT-5.6 Terra · баланс</option>
+                                        <option value="gpt-5.6-sol">GPT-5.6 Sol · максимум качества</option>
+                                    </optgroup>
+                                    <optgroup label="Другие поддерживаемые">
+                                        <option value="gpt-5.4-nano">GPT-5.4 nano · простые задачи</option>
+                                        <option value="gpt-5.4-mini">GPT-5.4 mini · быстро</option>
+                                        <option value="gpt-4.1-mini">GPT-4.1 mini · без reasoning</option>
+                                        <option value="gpt-4.1">GPT-4.1 · без reasoning</option>
+                                        <option value="gpt-4o-mini">GPT-4o mini · предыдущая</option>
+                                        <option value="gpt-4o">GPT-4o · прежний дефолт</option>
+                                    </optgroup>
+                                    <option value="__custom__">Другой ID модели…</option>
+                                </select>
+                            </label>
+                            <label id="custom-text-model-field" class="field provider-custom-model" hidden>
+                                <span>Свой ID модели</span>
+                                <input id="custom-text-model" type="text" placeholder="Например, model-name-snapshot" autocomplete="off" spellcheck="false">
                             </label>
                         </div>
-                        <small class="provider-note">Выбранная модель создаёт текст карточки и промпт для изображения. Можно вписать другой ID модели вручную.</small>
+                        <small class="provider-note">Luna подходит для массовой генерации карточек; Terra и Sol дают больше качества за более высокую цену. Доступность зависит от вашего API-проекта.</small>
                     </section>
                     <div id="replicate-settings" class="subform field-full" hidden>
                         <label class="field">

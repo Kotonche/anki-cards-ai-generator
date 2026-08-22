@@ -1,8 +1,8 @@
 import logging
-from openai import OpenAI
 
 from ..config import Config
 from ..entities import WordWithContext
+from .openai_response import generate_text
 
 anki_prompt_preamble = """I want you to act like a professional Anki card maker, able to create DALLE 3 prompts for the words I provide.
 Each image prompt should be detailed and specific to ensure that the resulting image accurately represents the concept or item you need to portray. 
@@ -52,27 +52,12 @@ def chat_generate_dalle_prompt(word_with_context: WordWithContext, card_text) ->
     logging.info(f"DALLE prompt generation: processing word [{word_with_context.word}]")
     logging.debug(f"DALLE prompt generation: processing card text [{card_text}]")
 
-    messages = [
-        {"role": "system", "content": f"{anki_prompt_preamble}"},
-        {"role": "user", "content": f"WORD: [{word_with_context.word}]; CARD TEXT: [{card_text}]"},
-    ]
-    client = OpenAI(
-        api_key=Config.OPENAI_API_KEY
+    user_input = f"WORD: [{word_with_context.word}]; CARD TEXT: [{card_text}]"
+    logging.debug(f"DALLE prompt generation input {user_input}")
+    generated_text = generate_text(
+        instructions=anki_prompt_preamble,
+        user_input=user_input,
+        max_output_tokens=512,
     )
-
-    logging.debug(f"DALLE prompt generation messages {messages}")
-    response = client.chat.completions.create(
-        # input prompt
-        messages=messages,
-        # model parameters
-        model=Config.TEXT_MODEL,
-        temperature=0.2,
-        max_tokens=256,
-        n=1,
-        presence_penalty=0,
-        frequency_penalty=0.1,
-    )
-
-    generated_text = response.choices[0].message.content
     logging.info(f"Generated DALLE prompt: {generated_text}")
     return generated_text

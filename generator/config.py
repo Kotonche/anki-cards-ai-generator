@@ -23,7 +23,7 @@ REPLICATE = "replicate"
 
 class Config:
     OPENAI_API_KEY: str = None
-    DEFAULT_TEXT_MODEL: str = "gpt-4o"
+    DEFAULT_TEXT_MODEL: str = "gpt-5.6-luna"
     TEXT_MODEL: str = DEFAULT_TEXT_MODEL
 
     SECONDS_WAIT_BETWEEN_DALLE_CALLS: int = 20
