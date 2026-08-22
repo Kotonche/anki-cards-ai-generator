@@ -1,4 +1,5 @@
 import base64
+import errno
 import unittest
 from pathlib import Path
 
@@ -6,6 +7,7 @@ from generator.api_calls.text_prompt_by_language import prompt_by_language
 from generator.config import A1, A2, C1, Config, GREEK
 from generator.webui.input_parser import InputError, parse_text, parse_uploaded_file
 from generator.webui.jobs import JobError, JobManager
+from generator.webui.server import create_server_with_fallback
 
 
 class InputParserTests(unittest.TestCase):
@@ -112,6 +114,41 @@ class GreekLanguageTests(unittest.TestCase):
         html = (Path(__file__).parents[1] / "generator" / "webui" / "templates" / "index.html").read_text()
 
         self.assertIn('value="greek"', html)
+
+
+class ServerStartupTests(unittest.TestCase):
+    def test_uses_next_port_when_preferred_port_is_busy(self):
+        attempts = []
+        expected_server = object()
+
+        def fake_server_factory(host, port):
+            attempts.append((host, port))
+            if port == 8766:
+                raise OSError(errno.EADDRINUSE, "Address already in use")
+            return expected_server
+
+        server, port = create_server_with_fallback(
+            "127.0.0.1",
+            8766,
+            server_factory=fake_server_factory,
+        )
+
+        self.assertIs(server, expected_server)
+        self.assertEqual(port, 8767)
+        self.assertEqual(attempts, [("127.0.0.1", 8766), ("127.0.0.1", 8767)])
+
+    def test_does_not_hide_unrelated_socket_errors(self):
+        def fake_server_factory(_host, _port):
+            raise OSError(errno.EACCES, "Permission denied")
+
+        with self.assertRaises(OSError) as raised:
+            create_server_with_fallback(
+                "127.0.0.1",
+                8766,
+                server_factory=fake_server_factory,
+            )
+
+        self.assertEqual(raised.exception.errno, errno.EACCES)
 
 
 if __name__ == "__main__":

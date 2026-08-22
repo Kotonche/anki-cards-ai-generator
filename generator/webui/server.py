@@ -1,4 +1,5 @@
 import argparse
+import errno
 import importlib.util
 import json
 import mimetypes
@@ -168,6 +169,18 @@ def create_server(host: str = "127.0.0.1", port: int = 8766) -> ThreadingHTTPSer
     return ThreadingHTTPServer((host, port), WebUiHandler)
 
 
+def create_server_with_fallback(host: str, preferred_port: int, attempts: int = 10, server_factory=None):
+    factory = server_factory or create_server
+    for offset in range(attempts):
+        port = preferred_port + offset
+        try:
+            return factory(host, port), port
+        except OSError as error:
+            if error.errno != errno.EADDRINUSE or offset == attempts - 1:
+                raise
+    raise RuntimeError("Не удалось найти свободный локальный порт")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Local web interface for the Anki card generator")
     parser.add_argument("--host", default="127.0.0.1", help="Bind address (default: local computer only)")
@@ -175,7 +188,15 @@ def main():
     parser.add_argument("--no-browser", action="store_true", help="Do not open the browser automatically")
     args = parser.parse_args()
 
-    server = create_server(args.host, args.port)
+    try:
+        server, selected_port = create_server_with_fallback(args.host, args.port)
+    except OSError as error:
+        if error.errno == errno.EADDRINUSE:
+            parser.error(f"ports {args.port}-{args.port + 9} are already in use")
+        raise
+
+    if selected_port != args.port:
+        print(f"Port {args.port} is busy; using {selected_port} instead")
     url = f"http://{args.host}:{server.server_port}"
     print(f"Anki Card Generator is available at {url}")
     print("Press Ctrl+C to stop it")
