@@ -22,15 +22,25 @@ const levelsByLanguage = {
 };
 const defaultLevelByLanguage = {english: "C1", german: "C1", greek: "A1"};
 const textModelPrices = {
-    "gpt-5.6-luna": {name: "GPT-5.6 Luna", input: "$0.20", cached: "$0.02", output: "$1.20"},
-    "gpt-5.6-terra": {name: "GPT-5.6 Terra", input: "$2.00", cached: "$0.20", output: "$12.00"},
-    "gpt-5.6-sol": {name: "GPT-5.6 Sol", input: "$4.00", cached: "$0.40", output: "$20.00", note: "Промоцена; вход / кэш / выход · за 1 млн токенов"},
-    "gpt-5.4-nano": {name: "GPT-5.4 nano", input: "$0.20", cached: "$0.02", output: "$1.25"},
-    "gpt-5.4-mini": {name: "GPT-5.4 mini", input: "$0.75", cached: "$0.075", output: "$4.50"},
-    "gpt-4.1-mini": {name: "GPT-4.1 mini", input: "$0.40", cached: "$0.10", output: "$1.60"},
-    "gpt-4.1": {name: "GPT-4.1", input: "$2.00", cached: "$0.50", output: "$8.00"},
-    "gpt-4o-mini": {name: "GPT-4o mini", input: "$0.15", cached: "$0.075", output: "$0.60"},
-    "gpt-4o": {name: "GPT-4o", input: "$2.50", cached: "$1.25", output: "$10.00"},
+    "gpt-5.6-luna": {name: "GPT-5.6 Luna", input: 0.20, cached: 0.02, output: 1.20},
+    "gpt-5.6-terra": {name: "GPT-5.6 Terra", input: 2.00, cached: 0.20, output: 12.00},
+    "gpt-5.6-sol": {name: "GPT-5.6 Sol", input: 4.00, cached: 0.40, output: 20.00, note: "Промоцена; вход / кэш / выход · за 1 млн токенов"},
+    "gpt-5.4-nano": {name: "GPT-5.4 nano", input: 0.20, cached: 0.02, output: 1.25},
+    "gpt-5.4-mini": {name: "GPT-5.4 mini", input: 0.75, cached: 0.075, output: 4.50},
+    "gpt-4.1-mini": {name: "GPT-4.1 mini", input: 0.40, cached: 0.10, output: 1.60},
+    "gpt-4.1": {name: "GPT-4.1", input: 2.00, cached: 0.50, output: 8.00},
+    "gpt-4o-mini": {name: "GPT-4o mini", input: 0.15, cached: 0.075, output: 0.60},
+    "gpt-4o": {name: "GPT-4o", input: 2.50, cached: 1.25, output: 10.00},
+};
+const cardCostAssumptions = {
+    textInputTokens: 2500,
+    textOutputTokens: 500,
+    imagePromptTokens: 200,
+    imageTextInputPerMillion: 5,
+    imageOutputCost: 0.006,
+    ttsPerMillionCharacters: 30,
+    defaultWordCharacters: 12,
+    ttsPaddingCharacters: 4,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -102,6 +112,7 @@ async function parseInput() {
         state.cards = result.cards.map((card, index) => ({...card, id: String(index + 1), status: "queued", message: "Ожидает запуска"}));
         state.job = null;
         localStorage.removeItem("anki-generator-job");
+        syncCardCostEstimate();
         renderQueue();
         $("#queue-section").hidden = false;
         $("#queue-section").scrollIntoView({behavior: "smooth", block: "start"});
@@ -170,7 +181,7 @@ function syncOpenAIPricing() {
     const pricing = textModelPrices[selected];
     if (pricing) {
         $("#text-price-model").textContent = pricing.name;
-        $("#text-price-value").textContent = `${pricing.input} / ${pricing.cached} / ${pricing.output}`;
+        $("#text-price-value").textContent = `${formatRate(pricing.input)} / ${formatRate(pricing.cached)} / ${formatRate(pricing.output)}`;
         $("#text-price-note").textContent = pricing.note || "Вход / кэш / выход · за 1 млн токенов";
     } else {
         const customName = $("#custom-text-model").value.trim();
@@ -187,6 +198,75 @@ function syncOpenAIPricing() {
     $("#image-price-note").textContent = usesOpenAIImages
         ? "1024×1024 · low, плюс вход prompt. Текст: $5 / $1.25; изображение: $8 / $2 / $30 за 1 млн токенов."
         : "Проверьте стоимость версии модели на странице Replicate";
+    syncCardCostEstimate();
+}
+
+function formatRate(value) {
+    return `$${value.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 3})}`;
+}
+
+function formatEstimatedCost(value) {
+    const fractionDigits = value < 0.001 ? 5 : 4;
+    return `$${value.toFixed(fractionDigits)}`;
+}
+
+function wordsForCostEstimate() {
+    if (state.cards.length) return state.cards.map((card) => card.word).filter(Boolean);
+    return $("#words-input").value
+        .split(/\r?\n/)
+        .map((line) => line.split(";", 1)[0].trim())
+        .filter((word, index) => word && !(index === 0 && word.toLowerCase() === "word"));
+}
+
+function estimatedAudioCharacters() {
+    const words = wordsForCostEstimate();
+    const averageWordCharacters = words.length
+        ? words.reduce((total, word) => total + word.length, 0) / words.length
+        : cardCostAssumptions.defaultWordCharacters;
+    return Math.round(averageWordCharacters + cardCostAssumptions.ttsPaddingCharacters);
+}
+
+function calculateCardCost(pricing, usesOpenAIImages, audioCharacters) {
+    if (!pricing) return null;
+    const text = (
+        cardCostAssumptions.textInputTokens * pricing.input
+        + cardCostAssumptions.textOutputTokens * pricing.output
+    ) / 1_000_000;
+    const image = usesOpenAIImages
+        ? cardCostAssumptions.imageOutputCost
+            + cardCostAssumptions.imagePromptTokens * cardCostAssumptions.imageTextInputPerMillion / 1_000_000
+        : null;
+    const audio = audioCharacters * cardCostAssumptions.ttsPerMillionCharacters / 1_000_000;
+    return {text, image, audio, knownTotal: text + audio + (image || 0)};
+}
+
+function syncCardCostEstimate() {
+    const pricing = textModelPrices[$("#text-model").value];
+    const usesOpenAIImages = $("#image-mode").value === "openai";
+    const audioCharacters = estimatedAudioCharacters();
+    const estimate = calculateCardCost(pricing, usesOpenAIImages, audioCharacters);
+
+    if (!estimate) {
+        const audioCost = audioCharacters * cardCostAssumptions.ttsPerMillionCharacters / 1_000_000;
+        $("#card-cost-total").textContent = "Нет полной оценки";
+        $("#card-cost-text").textContent = "нет тарифа";
+        $("#card-cost-image").textContent = usesOpenAIImages ? "≈ $0.0070" : "тариф Replicate";
+        $("#card-cost-audio").textContent = `≈ ${formatEstimatedCost(audioCost)}`;
+        $("#card-cost-summary").textContent = "Для собственного ID модели нужна известная цена";
+    } else {
+        $("#card-cost-total").textContent = usesOpenAIImages
+            ? `≈ ${formatEstimatedCost(estimate.knownTotal)}`
+            : `≈ ${formatEstimatedCost(estimate.knownTotal)} + Replicate`;
+        $("#card-cost-text").textContent = `≈ ${formatEstimatedCost(estimate.text)}`;
+        $("#card-cost-image").textContent = estimate.image === null
+            ? "тариф Replicate"
+            : `≈ ${formatEstimatedCost(estimate.image)}`;
+        $("#card-cost-audio").textContent = `≈ ${formatEstimatedCost(estimate.audio)}`;
+        $("#card-cost-summary").textContent = usesOpenAIImages
+            ? `${pricing.name} · изображение OpenAI · TTS-1 HD`
+            : `${pricing.name} · без цены Replicate · TTS-1 HD`;
+    }
+    $("#card-cost-assumptions").textContent = `Оценка: 2 500 входных + 500 выходных/reasoning-токенов текста, 200 токенов image prompt, ${audioCharacters} символов TTS. Без кэша.`;
 }
 
 async function startJob() {
@@ -375,6 +455,7 @@ async function restoreJob() {
     try {
         state.job = await api(`/api/jobs/${jobId}`);
         state.cards = state.job.cards;
+        syncCardCostEstimate();
         $("#queue-section").hidden = false;
         renderJob();
         if (!terminalJobStatuses.has(state.job.status)) startPolling();
@@ -394,10 +475,12 @@ $("#image-mode").addEventListener("change", (event) => {
 $("#language").addEventListener("change", syncLanguageLevels);
 $("#text-model").addEventListener("change", syncCustomTextModel);
 $("#custom-text-model").addEventListener("input", syncOpenAIPricing);
+$("#words-input").addEventListener("input", syncCardCostEstimate);
 $("#example-button").addEventListener("click", () => {
     $("#file-input").value = "";
     $("#file-label").textContent = "До 10 МБ · колонки word и context";
     $("#words-input").value = "purchasing power;economics\nconsciousness;philosophy\nfree will;decision making";
+    syncCardCostEstimate();
 });
 $("#parse-button").addEventListener("click", parseInput);
 $("#start-button").addEventListener("click", startJob);

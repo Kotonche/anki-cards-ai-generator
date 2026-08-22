@@ -204,6 +204,20 @@ class OpenAIModelSettingsTests(unittest.TestCase):
         self.assertIn('"gpt-5.6-luna"', javascript)
         self.assertIn("syncOpenAIPricing", javascript)
 
+    def test_web_interface_estimates_one_card_cost(self):
+        project_root = Path(__file__).parents[1]
+        html = (project_root / "generator" / "webui" / "templates" / "index.html").read_text()
+        javascript = (project_root / "generator" / "webui" / "static" / "app.js").read_text()
+
+        self.assertIn('id="card-cost-total"', html)
+        self.assertIn('id="card-cost-text"', html)
+        self.assertIn('id="card-cost-image"', html)
+        self.assertIn('id="card-cost-audio"', html)
+        self.assertIn("≈ $0.0086", html)
+        self.assertIn("function calculateCardCost", javascript)
+        self.assertIn("textInputTokens: 2500", javascript)
+        self.assertIn("syncCardCostEstimate", javascript)
+
     def test_selected_model_is_used_for_card_text_and_image_prompt(self):
         response = SimpleNamespace(output_text="generated")
         Config.TEXT_MODEL = "gpt-5.6-luna"

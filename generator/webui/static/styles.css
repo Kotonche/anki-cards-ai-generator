@@ -100,6 +100,17 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
 .pricing-heading strong { font-size: 12px; }
 .pricing-heading small { margin-top: 3px; color: var(--muted); font-size: 9px; }
 .pricing-heading a { color: var(--green); font-size: 10px; font-weight: 800; white-space: nowrap; }
+.card-cost-estimate { display: grid; grid-template-columns: minmax(150px, 0.8fr) minmax(220px, 1.2fr); gap: 13px 20px; margin-top: 12px; padding: 15px; border-radius: 13px; color: white; background: var(--green); }
+.cost-total > span, .cost-total > strong, .cost-total > small { display: block; }
+.cost-total > span { color: #d7e6dc; font-size: 9px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+.cost-total > strong { margin-top: 6px; color: var(--green-bright); font: 600 27px/1 Georgia, serif; letter-spacing: -0.025em; }
+.cost-total > small { margin-top: 7px; color: #c7d9ce; font-size: 8px; line-height: 1.4; }
+.cost-breakdown { display: grid; align-content: center; gap: 7px; }
+.cost-breakdown > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.15); }
+.cost-breakdown > div:last-child { padding-bottom: 0; border-bottom: 0; }
+.cost-breakdown span { color: #c7d9ce; font-size: 9px; }
+.cost-breakdown strong { font-size: 10px; white-space: nowrap; }
+.cost-assumptions { grid-column: 1 / -1; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.15); color: #afc6b8; font-size: 8px; line-height: 1.45; }
 .pricing-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-top: 11px; }
 .price-tile { min-width: 0; padding: 11px; border: 1px solid rgba(25, 79, 58, 0.14); border-radius: 11px; background: rgba(255, 255, 255, 0.58); }
 .price-tile > span, .price-tile > strong, .price-tile > small { display: block; }
@@ -214,6 +225,7 @@ tbody tr:last-child td { border-bottom: 0; }
     .health-row { justify-content: flex-start; }
     .page-shell { width: min(100% - 24px, 1240px); padding-top: 35px; }
     .form-grid, .subform, .provider-fields { grid-template-columns: 1fr; }
+    .card-cost-estimate { grid-template-columns: 1fr; }
     .queue-header { align-items: flex-start; flex-direction: column; }
     .queue-actions { width: 100%; }
     .queue-actions .button { flex: 1; }

@@ -158,7 +158,7 @@ GPT Image 2 is billed by tokens. With the current 1024×1024 low-quality setting
 - These images boost (at least mine) learning process a lot
 - Purpose-generated images work especially well for abstract vocabulary in this use case
 
-Text generation price depends on the selected model. TTS-1 HD costs $30 per 1M characters ($0.03 per 1,000 characters); only the target word is voiced. Current text, image and audio rates are shown directly in the web interface and on the [official pricing page](https://developers.openai.com/api/docs/pricing).
+Text generation price depends on the selected model. TTS-1 HD costs $30 per 1M characters ($0.03 per 1,000 characters); only the target word is voiced. Current rates and a live per-card estimate are shown directly in the web interface and on the [official pricing page](https://developers.openai.com/api/docs/pricing). The estimate uses typical token counts, excludes prompt caching and updates for the selected text model, image provider and average target-word length.
 
 Alternatively, you can use a custom model for image generation from Replicate, potentially cutting the costs of image generation to a fraction of cent. 
 

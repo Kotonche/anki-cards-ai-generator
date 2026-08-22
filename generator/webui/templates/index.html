@@ -160,6 +160,20 @@
                                 <a href="https://developers.openai.com/api/docs/pricing" target="_blank" rel="noreferrer">Официальные цены ↗</a>
                             </div>
 
+                            <section class="card-cost-estimate" aria-labelledby="card-cost-title" aria-live="polite">
+                                <div class="cost-total">
+                                    <span id="card-cost-title">Примерно за 1 новую карточку</span>
+                                    <strong id="card-cost-total">≈ $0.0086</strong>
+                                    <small id="card-cost-summary">GPT-5.6 Luna · изображение OpenAI · TTS-1 HD</small>
+                                </div>
+                                <div class="cost-breakdown" aria-label="Состав оценки">
+                                    <div><span>Текст · 2 вызова</span><strong id="card-cost-text">≈ $0.0011</strong></div>
+                                    <div><span>Изображение</span><strong id="card-cost-image">≈ $0.0070</strong></div>
+                                    <div><span>Аудио</span><strong id="card-cost-audio">≈ $0.00048</strong></div>
+                                </div>
+                                <small id="card-cost-assumptions" class="cost-assumptions">Оценка: 2 500 входных + 500 выходных/reasoning-токенов текста, 200 токенов image prompt, 16 символов TTS. Без кэша.</small>
+                            </section>
+
                             <div class="pricing-grid">
                                 <article class="price-tile">
                                     <span>Текст · <b id="text-price-model">GPT-5.6 Luna</b></span>
