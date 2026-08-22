@@ -42,6 +42,7 @@ class JobManager:
                     "dictionary_url": None,
                     "has_image": False,
                     "has_audio": False,
+                    "has_context_audio": False,
                 }
             )
         if not normalized_cards:
@@ -71,6 +72,7 @@ class JobManager:
         for card in job["cards"]:
             card.pop("image_path", None)
             card.pop("audio_path", None)
+            card.pop("context_audio_path", None)
 
         finished = sum(card["status"] in TERMINAL_CARD_STATUSES for card in job["cards"])
         total = len(job["cards"])
@@ -99,7 +101,11 @@ class JobManager:
             job["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     def media_path(self, job_id: str, card_id: str, kind: str) -> str | None:
-        field = {"image": "image_path", "audio": "audio_path"}.get(kind)
+        field = {
+            "image": "image_path",
+            "audio": "audio_path",
+            "context-audio": "context_audio_path",
+        }.get(kind)
         if not field:
             return None
         with self._lock:

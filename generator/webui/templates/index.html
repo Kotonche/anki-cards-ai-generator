@@ -61,9 +61,9 @@
                 <div class="or-divider"><span>или вставьте вручную</span></div>
 
                 <label class="field">
-                    <span>Слова и контекст</span>
+                    <span id="words-input-label">Слова и контекст</span>
                     <textarea id="words-input" rows="8" placeholder="purchasing power;economics&#10;consciousness;philosophy&#10;free will"></textarea>
-                    <small>Одно слово на строку. Контекст можно добавить после точки с запятой.</small>
+                    <small id="words-input-help">Одно слово на строку. Контекст можно добавить после точки с запятой.</small>
                 </label>
 
                 <button id="parse-button" class="button button-secondary button-wide" type="button">Подготовить карточки</button>
@@ -189,7 +189,7 @@
                                 <article class="price-tile">
                                     <span>Аудио · <b>TTS-1 HD</b></span>
                                     <strong>$30 / 1 млн символов</strong>
-                                    <small>$0.03 за 1 000 символов; в карточке озвучивается только слово</small>
+                                    <small id="audio-price-note">$0.03 за 1 000 символов; в карточке озвучивается только слово</small>
                                 </article>
                             </div>
 
@@ -241,6 +241,7 @@
                             <label class="field">
                                 <span>Тип заметки Anki</span>
                                 <input id="card-model" value="Basic (type in the answer)" autocomplete="off">
+                                <small id="card-model-note">Используется для английских и немецких карточек.</small>
                             </label>
                         </div>
                     </details>
@@ -256,6 +257,7 @@
                         <span><strong>Импортировать после генерации</strong><small>Иначе файлы останутся в рабочей папке</small></span>
                     </label>
                 </div>
+                <p id="greek-audio-note" class="setup-note" hidden>В шаблоне нет автозапуска. Если Anki всё равно проигрывает звук автоматически, отключите «Automatically play audio» в настройках выбранной колоды.</p>
             </article>
         </section>
 
@@ -305,7 +307,12 @@
                     <span>Шаблон</span>
                     <select id="preview-template" aria-label="Шаблон карточки">
                         <option value="classic">Классический</option>
+                        <option value="greek-vocabulary">Greek Vocabulary · 3 карточки</option>
                     </select>
+                </label>
+                <label id="preview-card-type-field" class="template-picker card-type-picker" hidden>
+                    <span>Карточка</span>
+                    <select id="preview-card-type" aria-label="Тип карточки"></select>
                 </label>
                 <div class="side-switcher" role="tablist" aria-label="Сторона карточки">
                     <button class="side-button is-active" data-preview-side="front" type="button" role="tab" aria-selected="true">Лицевая сторона</button>
@@ -320,34 +327,115 @@
                 <div class="anki-preview-inner">
                     <section id="preview-front" class="anki-card-face anki-card-front" aria-label="Лицевая сторона карточки">
                         <span class="face-label">Front</span>
-                        <div id="preview-front-image-wrap" class="anki-card-image">
-                            <img id="preview-front-image" src="/static/classic-template-sample.svg" alt="Пример иллюстрации о свободе выбора">
+                        <div id="preview-classic-front">
+                            <div id="preview-front-image-wrap" class="anki-card-image">
+                                <img id="preview-front-image" src="/static/classic-template-sample.svg" alt="Пример иллюстрации о свободе выбора">
+                            </div>
+                            <hr class="anki-divider">
+                            <p id="preview-front-text" class="anki-card-text">Something that allows people to make choices independently is known as ____ ___. Philosophers debate whether ____ ___ truly exists or whether our decisions are predetermined.</p>
+                            <hr class="anki-divider">
+                            <div class="anki-hints">
+                                <a id="preview-dictionary" class="text-link" href="https://dictionary.cambridge.org/dictionary/english/free-will" target="_blank" rel="noreferrer">Dictionary ↗</a>
+                                <span id="preview-audio-placeholder" class="audio-placeholder" aria-label="Пример кнопки аудио">▶ Audio</span>
+                                <audio id="preview-audio" controls hidden></audio>
+                            </div>
+                            <label class="answer-preview">
+                                <span>Введите ответ</span>
+                                <input type="text" placeholder="Ваш ответ…" readonly aria-label="Поле ответа в Anki">
+                            </label>
                         </div>
-                        <hr class="anki-divider">
-                        <p id="preview-front-text" class="anki-card-text">Something that allows people to make choices independently is known as ____ ___. Philosophers debate whether ____ ___ truly exists or whether our decisions are predetermined.</p>
-                        <hr class="anki-divider">
-                        <div class="anki-hints">
-                            <a id="preview-dictionary" class="text-link" href="https://dictionary.cambridge.org/dictionary/english/free-will" target="_blank" rel="noreferrer">Dictionary ↗</a>
-                            <span id="preview-audio-placeholder" class="audio-placeholder" aria-label="Пример кнопки аудио">▶ Audio</span>
-                            <audio id="preview-audio" controls hidden></audio>
+
+                        <div id="preview-greek-front" class="greek-preview" hidden>
+                            <section data-greek-card="production">
+                                <div class="greek-preview-image" data-greek-image-wrap><img data-greek-image alt="Пример изображения для греческой карточки"></div>
+                                <strong class="greek-preview-translation" data-greek-field="translation"></strong>
+                                <p class="greek-preview-prompt">Как по-гречески?</p>
+                            </section>
+                            <section data-greek-card="recognition" hidden>
+                                <p class="greek-preview-transcription" data-greek-field="transcription"></p>
+                                <strong class="greek-preview-word" data-greek-field="full_word"></strong>
+                                <div class="greek-preview-audio" data-greek-word-audio-wrap>
+                                    <span class="audio-placeholder" data-greek-word-audio-placeholder>▶ Слово</span>
+                                    <audio controls data-greek-word-audio hidden></audio>
+                                </div>
+                                <p class="greek-preview-prompt">Что это значит?</p>
+                            </section>
+                            <section data-greek-card="context" hidden>
+                                <p class="greek-preview-transcription" data-greek-field="context_cloze_transcription"></p>
+                                <p class="greek-preview-sentence" data-greek-field="context_cloze"></p>
+                                <strong class="greek-preview-context-hint" data-greek-field="translation"></strong>
+                                <label class="answer-preview">
+                                    <span>Введите пропущенное слово</span>
+                                    <input type="text" placeholder="Ваш ответ…" readonly aria-label="Поле ответа в Anki">
+                                </label>
+                            </section>
                         </div>
-                        <label class="answer-preview">
-                            <span>Введите ответ</span>
-                            <input type="text" placeholder="Ваш ответ…" readonly aria-label="Поле ответа в Anki">
-                        </label>
                     </section>
 
                     <section id="preview-back" class="anki-card-face anki-card-back" aria-label="Оборотная сторона карточки">
                         <span class="face-label">Back</span>
-                        <div class="back-context">
-                            <div id="preview-back-image-wrap" class="back-thumbnail">
-                                <img id="preview-back-image" src="/static/classic-template-sample.svg" alt="Пример иллюстрации о свободе выбора">
+                        <div id="preview-classic-back">
+                            <div class="back-context">
+                                <div id="preview-back-image-wrap" class="back-thumbnail">
+                                    <img id="preview-back-image" src="/static/classic-template-sample.svg" alt="Пример иллюстрации о свободе выбора">
+                                </div>
+                                <p id="preview-back-text" class="anki-card-text">Something that allows people to make choices independently is known as ____ ___. Philosophers debate whether ____ ___ truly exists or whether our decisions are predetermined.</p>
                             </div>
-                            <p id="preview-back-text" class="anki-card-text">Something that allows people to make choices independently is known as ____ ___. Philosophers debate whether ____ ___ truly exists or whether our decisions are predetermined.</p>
+                            <hr class="answer-divider">
+                            <p class="answer-caption">Правильный ответ</p>
+                            <strong id="preview-back-word" class="back-answer">free will</strong>
                         </div>
-                        <hr class="answer-divider">
-                        <p class="answer-caption">Правильный ответ</p>
-                        <strong id="preview-back-word" class="back-answer">free will</strong>
+
+                        <div id="preview-greek-back" class="greek-preview" hidden>
+                            <section data-greek-card="production">
+                                <p class="greek-preview-transcription" data-greek-field="transcription"></p>
+                                <strong class="greek-preview-word" data-greek-field="full_word"></strong>
+                                <div class="greek-preview-audio" data-greek-word-audio-wrap>
+                                    <span class="audio-placeholder" data-greek-word-audio-placeholder>▶ Слово</span>
+                                    <audio controls data-greek-word-audio hidden></audio>
+                                </div>
+                                <div class="greek-preview-context" data-greek-context>
+                                    <p class="greek-preview-transcription" data-greek-field="context_transcription"></p>
+                                    <p class="greek-preview-sentence" data-greek-field="context_greek"></p>
+                                    <p class="greek-preview-russian" data-greek-field="context_russian"></p>
+                                    <div class="greek-preview-audio" data-greek-context-audio-wrap>
+                                        <span class="audio-placeholder" data-greek-context-audio-placeholder>▶ Фраза</span>
+                                        <audio controls data-greek-context-audio hidden></audio>
+                                    </div>
+                                </div>
+                            </section>
+                            <section data-greek-card="recognition" hidden>
+                                <strong class="greek-preview-translation" data-greek-field="translation"></strong>
+                                <div class="greek-preview-image" data-greek-image-wrap><img data-greek-image alt="Пример изображения для греческой карточки"></div>
+                                <div class="greek-preview-context" data-greek-context>
+                                    <p class="greek-preview-transcription" data-greek-field="context_transcription"></p>
+                                    <p class="greek-preview-sentence" data-greek-field="context_greek"></p>
+                                    <p class="greek-preview-russian" data-greek-field="context_russian"></p>
+                                    <div class="greek-preview-audio" data-greek-context-audio-wrap>
+                                        <span class="audio-placeholder" data-greek-context-audio-placeholder>▶ Фраза</span>
+                                        <audio controls data-greek-context-audio hidden></audio>
+                                    </div>
+                                </div>
+                            </section>
+                            <section data-greek-card="context" hidden>
+                                <p class="answer-caption">Правильный ответ</p>
+                                <p class="greek-preview-transcription" data-greek-field="transcription"></p>
+                                <strong class="greek-preview-word" data-greek-field="context_answer"></strong>
+                                <div class="greek-preview-audio" data-greek-word-audio-wrap>
+                                    <span class="audio-placeholder" data-greek-word-audio-placeholder>▶ Слово</span>
+                                    <audio controls data-greek-word-audio hidden></audio>
+                                </div>
+                                <div class="greek-preview-context" data-greek-context>
+                                    <p class="greek-preview-transcription" data-greek-field="context_transcription"></p>
+                                    <p class="greek-preview-sentence" data-greek-field="context_greek"></p>
+                                    <p class="greek-preview-russian" data-greek-field="context_russian"></p>
+                                    <div class="greek-preview-audio" data-greek-context-audio-wrap>
+                                        <span class="audio-placeholder" data-greek-context-audio-placeholder>▶ Фраза</span>
+                                        <audio controls data-greek-context-audio hidden></audio>
+                                    </div>
+                                </div>
+                            </section>
+                        </div>
                     </section>
                 </div>
             </div>

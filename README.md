@@ -62,6 +62,18 @@ The page opens at [http://127.0.0.1:8766](http://127.0.0.1:8766). You can also u
 
 The first web version runs one generation job at a time. Closing the browser does not stop the active job, but restarting the Python server clears the in-memory job list. Generated JSON, PNG, and MP3 files remain in the processing directory and will be reused on the next run.
 
+#### Greek Vocabulary template
+
+When `Ελληνικά` is selected, enter words in Russian. The generator translates each entry into modern Greek and creates one versioned `Greek Vocabulary v1` note with up to three independently scheduled cards:
+
+- `ACTIVE RECALL · Production`: Russian meaning and image → Greek word with article.
+- `RECOGNITION · Comprehension`: Greek word with article → Russian meaning.
+- `CONTEXT RECALL · Usage`: Greek sentence with a blank → typed Greek answer.
+
+The note also stores a Russian phonetic transcription, a complete A1/A2 example, word audio with the article, and separate phrase audio. If the complete context block cannot be generated, the first two cards are still imported and the context card is omitted. Notes receive the shared tags `greek`, `greek-vocabulary`, `ai-generated`, `level::a1`/`level::a2`, the Greek word, and a Russian source tag.
+
+The importer reuses an existing compatible versioned note type but never overwrites an incompatible one; it creates the next version instead. Audio fields use Anki's normal replay buttons. Disable **Automatically play audio** in the deck options if you do not want Anki to play them automatically. Card 3 uses Anki's standard typed-answer comparison; [AnkiWeb does not display typed-answer boxes](https://docs.ankiweb.net/templates/fields.html#checking-your-answer), while supported desktop and mobile clients show the native comparison.
+
 ### Command line
 
 Syntax:  
@@ -158,7 +170,7 @@ GPT Image 2 is billed by tokens. With the current 1024×1024 low-quality setting
 - These images boost (at least mine) learning process a lot
 - Purpose-generated images work especially well for abstract vocabulary in this use case
 
-Text generation price depends on the selected model. TTS-1 HD costs $30 per 1M characters ($0.03 per 1,000 characters); only the target word is voiced. Current rates and a live per-card estimate are shown directly in the web interface and on the [official pricing page](https://developers.openai.com/api/docs/pricing). The estimate uses typical token counts, excludes prompt caching and updates for the selected text model, image provider and average target-word length.
+Text generation price depends on the selected model. TTS-1 HD costs $30 per 1M characters ($0.03 per 1,000 characters); English and German voice the target word, while Greek voices both the word with its article and the example phrase. Current rates and a live per-card estimate are shown directly in the web interface and on the [official pricing page](https://developers.openai.com/api/docs/pricing). The estimate uses typical token counts, excludes prompt caching and updates for the selected text model, image provider and average target-word length.
 
 Alternatively, you can use a custom model for image generation from Replicate, potentially cutting the costs of image generation to a fraction of cent. 
 

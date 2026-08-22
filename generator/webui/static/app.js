@@ -4,6 +4,8 @@ const state = {
     pollTimer: null,
     previewSide: "front",
     previewMode: "template",
+    previewData: null,
+    previewMedia: null,
 };
 
 const terminalJobStatuses = new Set(["completed", "completed_with_errors", "cancelled", "error"]);
@@ -42,16 +44,42 @@ const cardCostAssumptions = {
     ttsPerMillionCharacters: 30,
     defaultWordCharacters: 12,
     ttsPaddingCharacters: 4,
+    greekContextCharacters: 75,
 };
+const greekCardTypes = [
+    {id: "production", name: "ACTIVE RECALL · Production"},
+    {id: "recognition", name: "RECOGNITION · Comprehension"},
+    {id: "context", name: "CONTEXT RECALL · Usage"},
+];
 const previewTemplates = {
     classic: {
         name: "Классический",
         description: "Изображение, контекст с пропусками, словарь и аудио",
+        cardTypes: [{id: "classic", name: "Классическая карточка"}],
         sample: {
             word: "free will",
             card_text: "Something that allows people to make choices independently is known as ____ ___. Philosophers debate whether ____ ___ truly exists or whether our decisions are predetermined.",
             image_url: "/static/classic-template-sample.svg",
             dictionary_url: "https://dictionary.cambridge.org/dictionary/english/free-will",
+        },
+    },
+    "greek-vocabulary": {
+        name: "Greek Vocabulary",
+        description: "одна заметка · три независимые карточки",
+        cardTypes: greekCardTypes,
+        sample: {
+            article: "η",
+            greek_word: "πόρτα",
+            transcription: "и пОрта",
+            translation: "дверь",
+            context_greek: "Άνοιξε την πόρτα, σε παρακαλώ.",
+            context_transcription: "Аниксе тин пОрта, се паракалО.",
+            context_russian: "Открой дверь, пожалуйста.",
+            context_cloze: "Άνοιξε την _____, σε παρακαλώ.",
+            context_cloze_transcription: "Аниксе тин _____, се паракалО.",
+            context_answer: "πόρτα",
+            has_context: true,
+            image_url: "/static/classic-template-sample.svg",
         },
     },
 };
@@ -166,6 +194,7 @@ function settingsPayload() {
 
 function syncLanguageLevels() {
     const language = $("#language").value;
+    const isGreek = language === "greek";
     const levelSelect = $("#level");
     const previousLevel = levelSelect.value;
     const availableLevels = levelsByLanguage[language] || levelsByLanguage.english;
@@ -180,6 +209,24 @@ function syncLanguageLevels() {
     levelSelect.value = availableLevels.includes(previousLevel)
         ? previousLevel
         : defaultLevelByLanguage[language];
+
+    $("#words-input-label").textContent = isGreek ? "Русские слова и контекст" : "Слова и контекст";
+    $("#words-input").placeholder = isGreek
+        ? "дверь;дом\nпокупка;магазин\nвстречаться;друзья"
+        : "purchasing power;economics\nconsciousness;philosophy\nfree will";
+    $("#words-input-help").textContent = isGreek
+        ? "Введите по-русски. Модель создаст греческое слово, артикль, транскрипцию и пример."
+        : "Одно слово на строку. Контекст можно добавить после точки с запятой.";
+    $("#card-model").disabled = isGreek;
+    $("#card-model-note").textContent = isGreek
+        ? "Для греческого автоматически создаётся безопасная версия Greek Vocabulary v1."
+        : "Используется для английских и немецких карточек.";
+    $("#audio-price-note").textContent = isGreek
+        ? "$0.03 за 1 000 символов; создаются аудио слова с артиклем и полной фразы"
+        : "$0.03 за 1 000 символов; в карточке озвучивается только слово";
+    $("#greek-audio-note").hidden = !isGreek;
+    $("#preview-template").value = isGreek ? "greek-vocabulary" : "classic";
+    syncCardCostEstimate();
 }
 
 function syncCustomTextModel() {
@@ -236,7 +283,10 @@ function estimatedAudioCharacters() {
     const averageWordCharacters = words.length
         ? words.reduce((total, word) => total + word.length, 0) / words.length
         : cardCostAssumptions.defaultWordCharacters;
-    return Math.round(averageWordCharacters + cardCostAssumptions.ttsPaddingCharacters);
+    const greekContext = $("#language").value === "greek"
+        ? cardCostAssumptions.greekContextCharacters + cardCostAssumptions.ttsPaddingCharacters
+        : 0;
+    return Math.round(averageWordCharacters + cardCostAssumptions.ttsPaddingCharacters + greekContext);
 }
 
 function calculateCardCost(pricing, usesOpenAIImages, audioCharacters) {
@@ -256,8 +306,12 @@ function calculateCardCost(pricing, usesOpenAIImages, audioCharacters) {
 function syncCardCostEstimate() {
     const pricing = textModelPrices[$("#text-model").value];
     const usesOpenAIImages = $("#image-mode").value === "openai";
+    const isGreek = $("#language").value === "greek";
     const audioCharacters = estimatedAudioCharacters();
     const estimate = calculateCardCost(pricing, usesOpenAIImages, audioCharacters);
+    $("#card-cost-title").textContent = isGreek
+        ? "Примерно за 1 заметку · до 3 карточек"
+        : "Примерно за 1 новую карточку";
 
     if (!estimate) {
         const audioCost = audioCharacters * cardCostAssumptions.ttsPerMillionCharacters / 1_000_000;
@@ -276,10 +330,10 @@ function syncCardCostEstimate() {
             : `≈ ${formatEstimatedCost(estimate.image)}`;
         $("#card-cost-audio").textContent = `≈ ${formatEstimatedCost(estimate.audio)}`;
         $("#card-cost-summary").textContent = usesOpenAIImages
-            ? `${pricing.name} · изображение OpenAI · TTS-1 HD`
-            : `${pricing.name} · без цены Replicate · TTS-1 HD`;
+            ? `${pricing.name} · изображение OpenAI · ${isGreek ? "2 аудио" : "TTS-1 HD"}`
+            : `${pricing.name} · без цены Replicate · ${isGreek ? "2 аудио" : "TTS-1 HD"}`;
     }
-    $("#card-cost-assumptions").textContent = `Оценка: 2 500 входных + 500 выходных/reasoning-токенов текста, 200 токенов image prompt, ${audioCharacters} символов TTS. Без кэша.`;
+    $("#card-cost-assumptions").textContent = `Оценка: 2 500 входных + 500 выходных/reasoning-токенов текста, 200 токенов image prompt, ${audioCharacters} символов TTS${isGreek ? " для слова и фразы" : ""}. Без кэша.`;
 }
 
 async function startJob() {
@@ -425,7 +479,95 @@ function setPreviewImage(source, side) {
     if (source) image.src = source;
 }
 
+function setPreviewLayout(templateKey) {
+    const classic = templateKey === "classic";
+    $("#preview-classic-front").hidden = !classic;
+    $("#preview-classic-back").hidden = !classic;
+    $("#preview-greek-front").hidden = classic;
+    $("#preview-greek-back").hidden = classic;
+}
+
+function syncPreviewCardTypes(template, hasContext = true) {
+    const select = $("#preview-card-type");
+    const previous = select.value;
+    select.replaceChildren(...template.cardTypes.map((cardType) => {
+        const option = document.createElement("option");
+        option.value = cardType.id;
+        option.textContent = cardType.name;
+        option.disabled = cardType.id === "context" && !hasContext;
+        return option;
+    }));
+    const reusable = [...select.options].some((option) => option.value === previous && !option.disabled);
+    if (reusable) select.value = previous;
+    $("#preview-card-type-field").hidden = template.cardTypes.length <= 1;
+}
+
+function renderGreekCardType() {
+    const selected = $("#preview-card-type").value || "production";
+    document.querySelectorAll("[data-greek-card]").forEach((section) => {
+        section.hidden = section.dataset.greekCard !== selected;
+    });
+}
+
+function setGreekAudio(groupSelector, source, showPlaceholder) {
+    document.querySelectorAll(groupSelector).forEach((wrap) => {
+        const audio = wrap.querySelector("audio");
+        const placeholder = wrap.querySelector(".audio-placeholder");
+        audio.pause();
+        audio.removeAttribute("src");
+        audio.hidden = !source;
+        if (source) audio.src = source;
+        placeholder.hidden = !showPlaceholder;
+        wrap.hidden = !source && !showPlaceholder;
+    });
+}
+
+function populateGreekPreview(data, {
+    imageSource = null,
+    audioSource = null,
+    contextAudioSource = null,
+    showAudioPlaceholders = false,
+    note = "",
+} = {}) {
+    state.previewData = data;
+    state.previewMedia = {imageSource, audioSource, contextAudioSource};
+    setPreviewLayout("greek-vocabulary");
+
+    const fields = {
+        ...data,
+        full_word: [data.article, data.greek_word].filter(Boolean).join(" "),
+    };
+    document.querySelectorAll("[data-greek-field]").forEach((element) => {
+        element.textContent = fields[element.dataset.greekField] || "";
+    });
+    document.querySelectorAll("[data-greek-image-wrap]").forEach((wrap) => {
+        const image = wrap.querySelector("[data-greek-image]");
+        wrap.hidden = !imageSource;
+        image.removeAttribute("src");
+        if (imageSource) image.src = imageSource;
+    });
+
+    const hasContext = Boolean(
+        data.has_context
+        || (data.context_greek && data.context_cloze && data.context_answer)
+    );
+    document.querySelectorAll("[data-greek-context]").forEach((section) => {
+        section.hidden = !hasContext;
+    });
+    syncPreviewCardTypes(previewTemplates["greek-vocabulary"], hasContext);
+    renderGreekCardType();
+    setGreekAudio("[data-greek-word-audio-wrap]", audioSource, showAudioPlaceholders);
+    setGreekAudio("[data-greek-context-audio-wrap]", contextAudioSource, showAudioPlaceholders && hasContext);
+    $("#preview-model-note").textContent = note;
+    setPreviewSide("front");
+    if (!$("#preview-dialog").open) $("#preview-dialog").showModal();
+}
+
 function populatePreview(card, {imageSource = null, audioSource = null, showAudioPlaceholder = false, note = ""} = {}) {
+    state.previewData = card;
+    state.previewMedia = {imageSource, audioSource};
+    setPreviewLayout("classic");
+    syncPreviewCardTypes(previewTemplates.classic);
     const cardText = card.card_text || "Текст ещё не создан";
     $("#preview-front-text").textContent = cardText;
     $("#preview-back-text").textContent = cardText;
@@ -453,7 +595,16 @@ function populatePreview(card, {imageSource = null, audioSource = null, showAudi
 
 function openTemplatePreview() {
     state.previewMode = "template";
-    const template = previewTemplates[$("#preview-template").value] || previewTemplates.classic;
+    const templateKey = $("#preview-template").value;
+    const template = previewTemplates[templateKey] || previewTemplates.classic;
+    if (templateKey === "greek-vocabulary") {
+        populateGreekPreview(template.sample, {
+            imageSource: template.sample.image_url,
+            showAudioPlaceholders: true,
+            note: `Статичный пример · ${template.description}`,
+        });
+        return;
+    }
     populatePreview(template.sample, {
         imageSource: template.sample.image_url,
         showAudioPlaceholder: true,
@@ -470,6 +621,23 @@ function openPreview(card) {
         ? `/api/jobs/${state.job.id}/cards/${card.id}/media/audio`
         : null;
 
+    if (card.preview_kind === "greek-vocabulary") {
+        $("#preview-template").value = "greek-vocabulary";
+        const contextAudioSource = card.has_context_audio && state.job
+            ? `/api/jobs/${state.job.id}/cards/${card.id}/media/context-audio`
+            : null;
+        populateGreekPreview(card, {
+            imageSource,
+            audioSource,
+            contextAudioSource,
+            note: card.has_context
+                ? "Greek Vocabulary · три независимые карточки"
+                : "Greek Vocabulary · контекст недоступен, созданы две карточки",
+        });
+        return;
+    }
+
+    $("#preview-template").value = "classic";
     const modelName = state.job?.settings?.card_model || "Basic (type in the answer)";
     const note = modelName === "Basic (type in the answer)"
         ? "Приближённый вид стандартного Basic (type in the answer)"
@@ -478,7 +646,7 @@ function openPreview(card) {
 }
 
 function closePreview() {
-    $("#preview-audio").pause();
+    $("#preview-dialog").querySelectorAll("audio").forEach((audio) => audio.pause());
     $("#preview-dialog").close();
 }
 
@@ -512,16 +680,17 @@ $("#words-input").addEventListener("input", syncCardCostEstimate);
 $("#example-button").addEventListener("click", () => {
     $("#file-input").value = "";
     $("#file-label").textContent = "До 10 МБ · колонки word и context";
-    $("#words-input").value = "purchasing power;economics\nconsciousness;philosophy\nfree will;decision making";
+    $("#words-input").value = $("#language").value === "greek"
+        ? "дверь;дом\nпокупка;магазин\nвстречаться;друзья"
+        : "purchasing power;economics\nconsciousness;philosophy\nfree will;decision making";
     syncCardCostEstimate();
 });
 $("#parse-button").addEventListener("click", parseInput);
 $("#start-button").addEventListener("click", startJob);
 $("#cancel-button").addEventListener("click", cancelJob);
 $("#template-preview-button").addEventListener("click", openTemplatePreview);
-$("#preview-template").addEventListener("change", () => {
-    if (state.previewMode === "template") openTemplatePreview();
-});
+$("#preview-template").addEventListener("change", openTemplatePreview);
+$("#preview-card-type").addEventListener("change", renderGreekCardType);
 document.querySelectorAll("[data-preview-side]").forEach((button) => {
     button.addEventListener("click", () => setPreviewSide(button.dataset.previewSide));
 });

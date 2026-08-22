@@ -117,9 +117,18 @@ class GreekLanguageTests(unittest.TestCase):
         self.assertIn("Επίπεδο A1", prompt)
 
     def test_web_interface_contains_greek_option(self):
-        html = (Path(__file__).parents[1] / "generator" / "webui" / "templates" / "index.html").read_text()
+        project_root = Path(__file__).parents[1]
+        html = (project_root / "generator" / "webui" / "templates" / "index.html").read_text()
+        javascript = (project_root / "generator" / "webui" / "static" / "app.js").read_text()
 
         self.assertIn('value="greek"', html)
+        self.assertIn('value="greek-vocabulary"', html)
+        self.assertIn('id="preview-card-type"', html)
+        self.assertIn("ACTIVE RECALL · Production", javascript)
+        self.assertIn("RECOGNITION · Comprehension", javascript)
+        self.assertIn("CONTEXT RECALL · Usage", javascript)
+        self.assertIn("Русские слова и контекст", javascript)
+        self.assertIn("context-audio", javascript)
 
 
 class ServerStartupTests(unittest.TestCase):

@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 def _load_cached_card(processing_directory, word_with_context):
-    from generator.entities import CardRawDataV1
+    from generator.entities import GreekVocabularyDataV1, card_data_from_dict
     from generator.input.file_operations import (
         all_files_exist_and_are_not_empty,
         generate_card_data_path,
@@ -17,11 +17,14 @@ def _load_cached_card(processing_directory, word_with_context):
 
     try:
         data = json.loads(card_path.read_text(encoding="utf-8"))
-        card = CardRawDataV1(**data)
+        card = card_data_from_dict(data)
     except (OSError, ValueError, TypeError, json.JSONDecodeError):
         return None
 
-    if not all_files_exist_and_are_not_empty([card.image_path, card.audio_path]):
+    required_files = [card.image_path, card.audio_path]
+    if isinstance(card, GreekVocabularyDataV1) and card.context_audio_path:
+        required_files.append(card.context_audio_path)
+    if not all_files_exist_and_are_not_empty(required_files):
         return None
     return card
 
@@ -57,26 +60,35 @@ def _prepare_anki(settings: dict) -> None:
     from generator.config import Config
 
     validation.check_anki_connect()
-    if anki_operations.check_deck_exists(Config.DECK_NAME):
-        return
-    if settings.get("create_deck", True):
-        anki_operations.create_deck(Config.DECK_NAME)
-        return
-    raise RuntimeError(f"Колода {Config.DECK_NAME} не существует")
+    if not anki_operations.check_deck_exists(Config.DECK_NAME):
+        if settings.get("create_deck", True):
+            anki_operations.create_deck(Config.DECK_NAME)
+        else:
+            raise RuntimeError(f"Колода {Config.DECK_NAME} не существует")
+
+    if Config.LANGUAGE == "greek":
+        from generator.anki import greek_vocabulary_model
+
+        Config.CARD_MODEL = greek_vocabulary_model.ensure_model()
 
 
 def _handle_duplicate(settings: dict, word: str) -> str | None:
     from generator.anki import anki_operations
     from generator.config import Config
 
-    if not anki_operations.check_card_exists(Config.DECK_NAME, word):
+    tag = (
+        anki_operations.source_word_to_tag(word)
+        if Config.LANGUAGE == "greek"
+        else anki_operations.word_to_tag(word)
+    )
+    if not anki_operations.check_card_exists_with_tag(Config.DECK_NAME, tag):
         return None
 
     policy = settings.get("duplicate_policy", "skip")
     if policy == "skip":
         return "Карточка уже есть в колоде — пропущена"
     if policy == "replace":
-        if not anki_operations.delete_card_from_deck(Config.DECK_NAME, word):
+        if not anki_operations.delete_cards_from_deck_with_tag(Config.DECK_NAME, tag):
             raise RuntimeError("Не удалось удалить существующую карточку")
         return None
     if policy == "allow":
@@ -93,7 +105,7 @@ def _import_card(card) -> None:
 
 
 def _card_changes(card, status: str, message: str) -> dict:
-    return {
+    changes = {
         "status": status,
         "message": message,
         "card_text": card.card_text,
@@ -104,6 +116,26 @@ def _card_changes(card, status: str, message: str) -> dict:
         "has_image": bool(card.image_path),
         "has_audio": bool(card.audio_path),
     }
+    from generator.entities import GreekVocabularyDataV1
+
+    if isinstance(card, GreekVocabularyDataV1):
+        changes.update({
+            "preview_kind": "greek-vocabulary",
+            "greek_word": card.word,
+            "article": card.article,
+            "transcription": card.transcription,
+            "translation": card.translation,
+            "context_greek": card.context_greek,
+            "context_transcription": card.context_transcription,
+            "context_russian": card.context_russian,
+            "context_cloze": card.context_cloze,
+            "context_cloze_transcription": card.context_cloze_transcription,
+            "context_answer": card.context_answer,
+            "context_audio_path": card.context_audio_path,
+            "has_context": card.has_context,
+            "has_context_audio": bool(card.context_audio_path),
+        })
+    return changes
 
 
 def run_generation_job(manager, job_id: str) -> None:

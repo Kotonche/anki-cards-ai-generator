@@ -29,6 +29,10 @@ def create_deck(deck_name):
 
 def check_card_exists(deck_name, word):
     tag = word_to_tag(word)
+    return check_card_exists_with_tag(deck_name, tag)
+
+
+def check_card_exists_with_tag(deck_name, tag):
     existing_cards = find_all_cards_with_tag(deck_name, tag)
     if len(existing_cards) >= 1:
         logging.info(f"Card with tag [{tag}] exists in deck [{deck_name}]")
@@ -40,7 +44,11 @@ def check_card_exists(deck_name, word):
 
 def delete_card_from_deck(deck_name: str, word: str) -> bool:
     tag = word_to_tag(word)
-    logging.info(f"Deleting card [{word}] from deck [{deck_name}] using tag [{tag}]")
+    return delete_cards_from_deck_with_tag(deck_name, tag)
+
+
+def delete_cards_from_deck_with_tag(deck_name: str, tag: str) -> bool:
+    logging.info(f"Deleting cards from deck [{deck_name}] using tag [{tag}]")
     card_ids = find_all_cards_with_tag(deck_name, tag)
     if not card_ids:
         logging.warning("No cards found with the specified term in the given deck.")
@@ -50,7 +58,7 @@ def delete_card_from_deck(deck_name: str, word: str) -> bool:
         # sometimes cards are not deleted -> retry
         remaining_cards = find_all_cards_with_tag(deck_name, tag)
         if len(remaining_cards) == 0:
-            logging.info(f"Successfully deleted card for [{word}]")
+            logging.info(f"Successfully deleted cards with tag [{tag}]")
             return True
         else:
             logging.error(f"Deletion returned no error, but some cards with tag [{tag}] are still in the deck - {remaining_cards}."
@@ -74,8 +82,12 @@ def find_cards(query):
 
 
 def delete_cards_by_id(card_ids):
-    result = invoke('deleteNotes', {'notes': card_ids})
-    logging.info(f"Deletion performed for cards with ids {card_ids}")
+    cards_info = get_card_info(card_ids)
+    if cards_info.get('error'):
+        return cards_info
+    note_ids = sorted({card['note'] for card in cards_info.get('result', [])})
+    result = invoke('deleteNotes', {'notes': note_ids})
+    logging.info(f"Deletion performed for note ids {note_ids} resolved from card ids {card_ids}")
     return result
 
 
@@ -94,7 +106,11 @@ def get_all_words_from_deck(deck_name) -> list[str]:
         return []
 
     cards_info = get_card_info(card_ids)['result']
-    words = [card['fields']['Front']['value'] for card in cards_info]
+    words = []
+    for card in cards_info:
+        field = card['fields'].get('Front') or card['fields'].get('Word')
+        if field:
+            words.append(field['value'])
     return words
 
 
@@ -110,3 +126,7 @@ def invoke(action, params=None):
 def word_to_tag(word: str) -> str:
     formatted_word = word.replace(' ', '_').lower()  # Format word for consistent tagging
     return formatted_word
+
+
+def source_word_to_tag(word: str) -> str:
+    return f"source::{word_to_tag(word)}"
