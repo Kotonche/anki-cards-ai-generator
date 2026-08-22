@@ -39,7 +39,7 @@ def check_language():
 
 
 def check_level():
-    if Config.LEVEL not in Config.SUPPORTED_LEVELS:
+    if Config.LEVEL not in Config.supported_levels_for_language():
         raise Exception(f"Language level {Config.LEVEL} is not supported")
 
 

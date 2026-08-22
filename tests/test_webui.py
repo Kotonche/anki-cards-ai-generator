@@ -1,6 +1,9 @@
 import base64
 import unittest
+from pathlib import Path
 
+from generator.api_calls.text_prompt_by_language import prompt_by_language
+from generator.config import A1, A2, C1, Config, GREEK
 from generator.webui.input_parser import InputError, parse_text, parse_uploaded_file
 from generator.webui.jobs import JobError, JobManager
 
@@ -73,6 +76,42 @@ class JobManagerTests(unittest.TestCase):
     def test_unknown_job_is_rejected(self):
         with self.assertRaises(JobError):
             self.manager.snapshot("missing")
+
+
+class GreekLanguageTests(unittest.TestCase):
+    def tearDown(self):
+        Config.LANGUAGE = Config.DEFAULT_LANGUAGE
+        Config.LEVEL = Config.DEFAULT_LEVEL
+
+    def test_greek_supports_only_a1_and_a2(self):
+        Config.set_language_or_use_default(GREEK)
+
+        self.assertEqual(Config.supported_levels_for_language(), [A1, A2])
+        Config.set_level_or_use_default(A2)
+        self.assertEqual(Config.LEVEL, A2)
+        with self.assertRaises(Exception):
+            Config.set_level_or_use_default(C1)
+
+    def test_greek_defaults_to_a1(self):
+        Config.set_language_or_use_default(GREEK)
+
+        Config.set_level_or_use_default(None)
+
+        self.assertEqual(Config.LEVEL, A1)
+
+    def test_greek_prompt_is_routed(self):
+        Config.LANGUAGE = GREEK
+        Config.LEVEL = A1
+
+        prompt = prompt_by_language.get_system_prompt_by_language()
+
+        self.assertIn("σύγχρονης ελληνικής", prompt)
+        self.assertIn("Επίπεδο A1", prompt)
+
+    def test_web_interface_contains_greek_option(self):
+        html = (Path(__file__).parents[1] / "generator" / "webui" / "templates" / "index.html").read_text()
+
+        self.assertIn('value="greek"', html)
 
 
 if __name__ == "__main__":

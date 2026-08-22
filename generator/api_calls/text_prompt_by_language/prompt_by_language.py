@@ -1,7 +1,7 @@
 import logging
 
-from generator.api_calls.text_prompt_by_language import english_prompt_text, german_prompt_text
-from generator.config import Config, ENGLISH, GERMAN
+from generator.api_calls.text_prompt_by_language import english_prompt_text, german_prompt_text, greek_prompt_text
+from generator.config import Config, ENGLISH, GERMAN, GREEK
 
 
 def get_system_prompt_by_language():
@@ -9,6 +9,8 @@ def get_system_prompt_by_language():
         return english_prompt_text.get_prompt()
     elif Config.LANGUAGE == GERMAN:
         return german_prompt_text.get_prompt()
+    elif Config.LANGUAGE == GREEK:
+        return greek_prompt_text.get_prompt()
     else:
         logging.error(f"No text prompt for language [{Config.LANGUAGE}]")
         return None

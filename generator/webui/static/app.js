@@ -14,6 +14,12 @@ const statusLabels = {
     skipped: "Пропущена",
     error: "Ошибка",
 };
+const levelsByLanguage = {
+    english: ["A1", "A2", "B1", "B2", "C1", "C2"],
+    german: ["A1", "A2", "B1", "B2", "C1", "C2"],
+    greek: ["A1", "A2"],
+};
+const defaultLevelByLanguage = {english: "C1", german: "C1", greek: "A1"};
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -111,6 +117,24 @@ function settingsPayload() {
         create_deck: $("#create-deck").checked,
         import_after_generation: $("#import-after").checked,
     };
+}
+
+function syncLanguageLevels() {
+    const language = $("#language").value;
+    const levelSelect = $("#level");
+    const previousLevel = levelSelect.value;
+    const availableLevels = levelsByLanguage[language] || levelsByLanguage.english;
+    levelSelect.replaceChildren(
+        ...availableLevels.map((level) => {
+            const option = document.createElement("option");
+            option.value = level;
+            option.textContent = level;
+            return option;
+        }),
+    );
+    levelSelect.value = availableLevels.includes(previousLevel)
+        ? previousLevel
+        : defaultLevelByLanguage[language];
 }
 
 async function startJob() {
@@ -274,6 +298,7 @@ $("#file-input").addEventListener("change", (event) => {
 $("#image-mode").addEventListener("change", (event) => {
     $("#replicate-settings").hidden = event.target.value !== "replicate";
 });
+$("#language").addEventListener("change", syncLanguageLevels);
 $("#example-button").addEventListener("click", () => {
     $("#file-input").value = "";
     $("#file-label").textContent = "До 10 МБ · колонки word и context";
@@ -288,4 +313,5 @@ $("#preview-dialog").addEventListener("click", (event) => {
 });
 
 loadHealth();
+syncLanguageLevels();
 restoreJob();

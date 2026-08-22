@@ -8,6 +8,7 @@ load_dotenv()
 
 ENGLISH = "english"
 GERMAN = "german"
+GREEK = "greek"
 
 A1 = "A1"
 A2 = "A2"
@@ -30,12 +31,22 @@ class Config:
 
     ANKI_CONNECT_URL: str = "http://localhost:8765"
 
-    SUPPORTED_LANGUAGES: list[str] = [ENGLISH, GERMAN]
+    SUPPORTED_LANGUAGES: list[str] = [ENGLISH, GERMAN, GREEK]
     DEFAULT_LANGUAGE: str = ENGLISH
     LANGUAGE: str = None
 
     SUPPORTED_LEVELS: list[str] = [A1, A2, B1, B2, C1, C2]
+    SUPPORTED_LEVELS_BY_LANGUAGE: dict[str, list[str]] = {
+        ENGLISH: SUPPORTED_LEVELS,
+        GERMAN: SUPPORTED_LEVELS,
+        GREEK: [A1, A2],
+    }
     DEFAULT_LEVEL: str = C1
+    DEFAULT_LEVEL_BY_LANGUAGE: dict[str, str] = {
+        ENGLISH: DEFAULT_LEVEL,
+        GERMAN: DEFAULT_LEVEL,
+        GREEK: A1,
+    }
     LEVEL: str = None
 
     DEFAULT_CARD_MODEL: str = "Basic (type in the answer)"
@@ -102,13 +113,20 @@ class Config:
 
     @classmethod
     def set_level_or_use_default(cls, level):
-        if level is None:
-            cls.LEVEL = cls.DEFAULT_LEVEL
-        elif level.upper() in cls.SUPPORTED_LEVELS:
-            cls.LEVEL = level.upper()
-        else:
-            raise Exception(f"Language level [{level}] not supported. Supported language levels: {cls.SUPPORTED_LEVELS}")
+        supported_levels = cls.supported_levels_for_language()
+        selected_level = cls.DEFAULT_LEVEL_BY_LANGUAGE.get(cls.LANGUAGE, cls.DEFAULT_LEVEL) if level is None else level.upper()
+        if selected_level not in supported_levels:
+            raise Exception(
+                f"Language level [{selected_level}] not supported for [{cls.LANGUAGE}]. "
+                f"Supported language levels: {supported_levels}"
+            )
+        cls.LEVEL = selected_level
         logging.info(f"Language level set to [{cls.LEVEL}]")
+
+    @classmethod
+    def supported_levels_for_language(cls, language: str = None) -> list[str]:
+        selected_language = language or cls.LANGUAGE or cls.DEFAULT_LANGUAGE
+        return cls.SUPPORTED_LEVELS_BY_LANGUAGE.get(selected_language, cls.SUPPORTED_LEVELS)
 
     @classmethod
     def set_card_model_or_use_default(cls, card_model: str):
@@ -181,4 +199,3 @@ class Config:
                 else:
                     cls.REPLICATE_API_KEY = replicate_api_key_env
             logging.info(f"Replicate API key initialized")
-

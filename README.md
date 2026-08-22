@@ -17,9 +17,10 @@ Workflow:
 ### Supported Languages
 - English (with [Cambridge Dictionary](https://dictionary.cambridge.org/))
 - German (with [DWDS](https://www.dwds.de/))
+- Greek (A1-A2; dictionary links are not configured yet)
 
 ### Language Levels
-You can choose a CERF language level for card generation: A1, A2, B1, B2, C1, C2.
+For English and German, you can choose a CEFR language level from A1 to C2. Greek currently supports A1 and A2.
 
 Note, that not all words can be explained at the beginner levels. 
 
@@ -70,7 +71,7 @@ read-generate-import.py input_file processing_directory \
           [--openai_api_key OPENAI_API_KEY] \
           [--deck_name DECK_NAME] \
           [--anki_media_directory_path ANKI_MEDIA_DIRECTORY_PATH] \
-          [--language {english,german}] \
+          [--language {english,german,greek}] \
           [--level {A1,A2,B1,B2,C1,C2}] \
           [--card_model CARD_MODEL] \
           [--image_generation_mode {openai,replicate}] \

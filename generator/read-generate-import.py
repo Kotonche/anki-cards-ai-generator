@@ -54,7 +54,7 @@ def main():
     parser.add_argument('--deck_name', type=str, help="Name of the Anki deck. If not set, the default name is generated", default=None)
     parser.add_argument('--anki_media_directory_path', type=str, help="Path to the Anki media directory. If not set, the standard path for each OS is used", default=None)
     parser.add_argument('--language', type=str, help="Target card language. Not only the card translation, customized generation process for each language", default=Config.DEFAULT_LANGUAGE, choices=Config.SUPPORTED_LANGUAGES)
-    parser.add_argument("--level", type=str, help="Current language level, that should be used for card creation to avoid overcomplicated cards for beginners and vice versa", default=Config.DEFAULT_LEVEL, choices=Config.SUPPORTED_LEVELS)
+    parser.add_argument("--level", type=str, help="Current language level, that should be used for card creation to avoid overcomplicated cards for beginners and vice versa", default=None, choices=Config.SUPPORTED_LEVELS)
     parser.add_argument("--card_model", type=str, help="Available model names depend on anki client language. If default model name is not available in your client (or you want to use a custom model) - use this parameter", default=Config.DEFAULT_CARD_MODEL)
 
     parser.add_argument('--image_generation_mode', type=str, help="Use alternative image generation mode (e.g to use a cheaper model with Replicate)", default=Config.DEFAULT_IMAGE_GENERATION_MODE, choices=Config.SUPPORTED_IMAGE_GENERATION_MODES)
