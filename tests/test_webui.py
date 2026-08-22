@@ -151,5 +151,17 @@ class ServerStartupTests(unittest.TestCase):
         self.assertEqual(raised.exception.errno, errno.EACCES)
 
 
+class CardPreviewTests(unittest.TestCase):
+    def test_interface_has_front_and_back_card_faces(self):
+        project_root = Path(__file__).parents[1]
+        html = (project_root / "generator" / "webui" / "templates" / "index.html").read_text()
+        javascript = (project_root / "generator" / "webui" / "static" / "app.js").read_text()
+
+        self.assertIn('id="preview-front"', html)
+        self.assertIn('id="preview-back"', html)
+        self.assertIn('id="preview-back-word"', html)
+        self.assertIn("function setPreviewSide", javascript)
+
+
 if __name__ == "__main__":
     unittest.main()

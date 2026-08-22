@@ -45,7 +45,7 @@ The synchronization is very straightforward, and is described [here](https://doc
 
 ### Local web interface
 
-The browser interface runs only on your computer and keeps API keys in the Python process. It supports pasted word lists and CSV, TXT, XLS, and XLSX files, displays card progress, reuses complete generated files, and can import the result through AnkiConnect.
+The browser interface runs only on your computer and keeps API keys in the Python process. It supports pasted word lists and CSV, TXT, XLS, and XLSX files, displays card progress and front/back previews, reuses complete generated files, and can import the result through AnkiConnect.
 
 1. Create and activate a Python 3.10+ virtual environment.
 2. Install dependencies:

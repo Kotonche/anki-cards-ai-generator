@@ -192,21 +192,59 @@
     <dialog id="preview-dialog" class="preview-dialog">
         <div class="dialog-header">
             <div>
-                <p class="step-label">Предпросмотр</p>
-                <h2 id="preview-word">Карточка</h2>
+                <p class="step-label">Anki preview</p>
+                <h2>Предпросмотр карточки</h2>
             </div>
             <button id="close-preview" class="icon-button" type="button" aria-label="Закрыть">×</button>
         </div>
-        <div class="preview-layout">
-            <div id="preview-image-wrap" class="preview-image-wrap" hidden>
-                <img id="preview-image" alt="Сгенерированная иллюстрация">
+
+        <div class="preview-toolbar">
+            <div class="side-switcher" role="tablist" aria-label="Сторона карточки">
+                <button class="side-button is-active" data-preview-side="front" type="button" role="tab" aria-selected="true">Лицевая сторона</button>
+                <button class="side-button" data-preview-side="back" type="button" role="tab" aria-selected="false">Оборотная сторона</button>
             </div>
-            <div>
-                <h3>Текст карточки</h3>
-                <p id="preview-text" class="generated-text"></p>
-                <a id="preview-dictionary" class="text-link" target="_blank" rel="noreferrer" hidden>Открыть словарь ↗</a>
-                <audio id="preview-audio" controls hidden></audio>
+            <small id="preview-model-note">Предпросмотр стандартного типа заметки</small>
+        </div>
+
+        <div class="anki-preview-stage">
+            <div id="anki-preview-card" class="anki-preview-card">
+                <div class="anki-preview-inner">
+                    <section id="preview-front" class="anki-card-face anki-card-front" aria-label="Лицевая сторона карточки">
+                        <span class="face-label">Front</span>
+                        <div id="preview-front-image-wrap" class="anki-card-image" hidden>
+                            <img id="preview-front-image" alt="Сгенерированная иллюстрация">
+                        </div>
+                        <hr class="anki-divider">
+                        <p id="preview-front-text" class="anki-card-text"></p>
+                        <hr class="anki-divider">
+                        <div class="anki-hints">
+                            <a id="preview-dictionary" class="text-link" target="_blank" rel="noreferrer" hidden>Dictionary ↗</a>
+                            <audio id="preview-audio" controls hidden></audio>
+                        </div>
+                        <label class="answer-preview">
+                            <span>Введите ответ</span>
+                            <input type="text" placeholder="Ваш ответ…" readonly aria-label="Поле ответа в Anki">
+                        </label>
+                    </section>
+
+                    <section id="preview-back" class="anki-card-face anki-card-back" aria-label="Оборотная сторона карточки">
+                        <span class="face-label">Back</span>
+                        <div class="back-context">
+                            <div id="preview-back-image-wrap" class="back-thumbnail" hidden>
+                                <img id="preview-back-image" alt="Сгенерированная иллюстрация">
+                            </div>
+                            <p id="preview-back-text" class="anki-card-text"></p>
+                        </div>
+                        <hr class="answer-divider">
+                        <p class="answer-caption">Правильный ответ</p>
+                        <strong id="preview-back-word" class="back-answer"></strong>
+                    </section>
+                </div>
             </div>
+        </div>
+
+        <div class="preview-actions">
+            <button id="flip-preview" class="button button-secondary" type="button">Показать оборотную сторону</button>
         </div>
     </dialog>
 </body>

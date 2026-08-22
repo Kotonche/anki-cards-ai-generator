@@ -2,6 +2,7 @@ const state = {
     cards: [],
     job: null,
     pollTimer: null,
+    previewSide: "front",
 };
 
 const terminalJobStatuses = new Set(["completed", "completed_with_errors", "cancelled", "error"]);
@@ -222,7 +223,7 @@ function renderQueue() {
         const preview = document.createElement("button");
         preview.type = "button";
         preview.className = "button button-quiet button-small";
-        preview.textContent = "Открыть";
+        preview.textContent = "Предпросмотр";
         preview.disabled = !card.card_text;
         preview.addEventListener("click", () => openPreview(card));
         actionCell.append(preview);
@@ -254,17 +255,45 @@ function renderJob() {
     $("#start-button").disabled = state.job.status !== "ready";
 }
 
-function openPreview(card) {
-    $("#preview-word").textContent = card.word;
-    $("#preview-text").textContent = card.card_text || "Текст ещё не создан";
+function setPreviewSide(side) {
+    state.previewSide = side === "back" ? "back" : "front";
+    const showBack = state.previewSide === "back";
+    $("#anki-preview-card").classList.toggle("is-flipped", showBack);
+    $("#preview-front").setAttribute("aria-hidden", String(showBack));
+    $("#preview-back").setAttribute("aria-hidden", String(!showBack));
+    $("#preview-front").inert = showBack;
+    $("#preview-back").inert = !showBack;
+    document.querySelectorAll("[data-preview-side]").forEach((button) => {
+        const active = button.dataset.previewSide === state.previewSide;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-selected", String(active));
+    });
+    $("#flip-preview").textContent = showBack
+        ? "Показать лицевую сторону"
+        : "Показать оборотную сторону";
+}
 
-    const imageWrap = $("#preview-image-wrap");
-    imageWrap.hidden = !card.has_image;
+function setPreviewImage(card, side) {
+    const wrap = $(`#preview-${side}-image-wrap`);
+    const image = $(`#preview-${side}-image`);
+    wrap.hidden = !card.has_image;
+    image.removeAttribute("src");
     if (card.has_image && state.job) {
-        $("#preview-image").src = `/api/jobs/${state.job.id}/cards/${card.id}/media/image`;
+        image.src = `/api/jobs/${state.job.id}/cards/${card.id}/media/image`;
     }
+}
+
+function openPreview(card) {
+    const cardText = card.card_text || "Текст ещё не создан";
+    $("#preview-front-text").textContent = cardText;
+    $("#preview-back-text").textContent = cardText;
+    $("#preview-back-word").textContent = card.word;
+    setPreviewImage(card, "front");
+    setPreviewImage(card, "back");
 
     const audio = $("#preview-audio");
+    audio.pause();
+    audio.removeAttribute("src");
     audio.hidden = !card.has_audio;
     if (card.has_audio && state.job) {
         audio.src = `/api/jobs/${state.job.id}/cards/${card.id}/media/audio`;
@@ -274,7 +303,19 @@ function openPreview(card) {
     const safeUrl = card.dictionary_url && /^https?:\/\//.test(card.dictionary_url);
     dictionary.hidden = !safeUrl;
     if (safeUrl) dictionary.href = card.dictionary_url;
+    else dictionary.removeAttribute("href");
+
+    const modelName = state.job?.settings?.card_model || "Basic (type in the answer)";
+    $("#preview-model-note").textContent = modelName === "Basic (type in the answer)"
+        ? "Приближённый вид стандартного Basic (type in the answer)"
+        : `Поля карточки; итоговое оформление зависит от шаблона «${modelName}»`;
+    setPreviewSide("front");
     $("#preview-dialog").showModal();
+}
+
+function closePreview() {
+    $("#preview-audio").pause();
+    $("#preview-dialog").close();
 }
 
 async function restoreJob() {
@@ -307,9 +348,15 @@ $("#example-button").addEventListener("click", () => {
 $("#parse-button").addEventListener("click", parseInput);
 $("#start-button").addEventListener("click", startJob);
 $("#cancel-button").addEventListener("click", cancelJob);
-$("#close-preview").addEventListener("click", () => $("#preview-dialog").close());
+document.querySelectorAll("[data-preview-side]").forEach((button) => {
+    button.addEventListener("click", () => setPreviewSide(button.dataset.previewSide));
+});
+$("#flip-preview").addEventListener("click", () => {
+    setPreviewSide(state.previewSide === "front" ? "back" : "front");
+});
+$("#close-preview").addEventListener("click", closePreview);
 $("#preview-dialog").addEventListener("click", (event) => {
-    if (event.target === $("#preview-dialog")) $("#preview-dialog").close();
+    if (event.target === $("#preview-dialog")) closePreview();
 });
 
 loadHealth();
