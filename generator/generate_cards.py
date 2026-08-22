@@ -37,14 +37,17 @@ def create_card_for_word(word_with_context) -> CardRawDataV1:
     card_text = openai_text.chat_generate_text(word_with_context)
     logging.info("Card text is created")
 
-    image_prompt = openai_image_prompt.chat_generate_dalle_prompt(word_with_context, card_text)
-    image_url = get_image_url_depending_on_image_generation_mode(image_prompt)
+    image_prompt = openai_image_prompt.chat_generate_image_prompt(word_with_context, card_text)
+    image_source = get_image_url_depending_on_image_generation_mode(image_prompt)
 
     logging.info("Card Image is created")
-    logging.info(f"Image url: {image_url}")
+    if image_source.startswith("data:image/"):
+        logging.info("Image source: inline OpenAI image data")
+    else:
+        logging.info(f"Image URL: {image_source}")
 
     image_path = generate_image_path(Config.PROCESSING_DIRECTORY_PATH, word_with_context)
-    download_and_save_image(image_url, image_path)
+    download_and_save_image(image_source, image_path)
     logging.info(f"Card image is saved as [{image_path}]")
 
     audio_path = generate_audio_path(Config.PROCESSING_DIRECTORY_PATH, word_with_context)
@@ -57,8 +60,13 @@ def create_card_for_word(word_with_context) -> CardRawDataV1:
     else:
         logging.warning(f"Dictionary url is not created")
 
+    image_reference = (
+        f"openai:{Config.OPENAI_IMAGE_MODEL}"
+        if image_source.startswith("data:image/")
+        else image_source
+    )
     card_raw: CardRawDataV1 = CardRawDataV1(word=word_with_context.word, card_text=card_text,
-                                            image_prompt=image_prompt, image_url=image_url, image_path=image_path,
+                                            image_prompt=image_prompt, image_url=image_reference, image_path=image_path,
                                             audio_path=audio_path,
                                             dictionary_url=dictionary_url)
     card_data_path = generate_card_data_path(Config.PROCESSING_DIRECTORY_PATH, word_with_context)
@@ -77,6 +85,6 @@ def get_image_url_depending_on_image_generation_mode(image_prompt):
 
 
 def wait_after_word_processing():
-    sleep_seconds = Config.SECONDS_WAIT_BETWEEN_DALLE_CALLS
+    sleep_seconds = Config.SECONDS_WAIT_BETWEEN_IMAGE_CALLS
     logging.info(f"Waiting [{sleep_seconds}] seconds after word processing (API RPM)")
     time.sleep(sleep_seconds)

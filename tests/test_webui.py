@@ -1,14 +1,16 @@
 import base64
 import errno
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from generator.api_calls import openai_image_prompt, openai_response, openai_text
+from generator.api_calls import openai_image, openai_image_prompt, openai_response, openai_text
 from generator.api_calls.text_prompt_by_language import prompt_by_language
 from generator.config import A1, A2, C1, Config, GREEK
 from generator.entities import WordWithContext
+from generator.input.file_operations import download_and_save_image
 from generator.webui.input_parser import InputError, parse_text, parse_uploaded_file
 from generator.webui.jobs import JobError, JobManager
 from generator.webui.server import create_server_with_fallback
@@ -189,6 +191,19 @@ class OpenAIModelSettingsTests(unittest.TestCase):
         self.assertIn('id="custom-text-model"', html)
         self.assertIn("text_model: selectedTextModel()", javascript)
 
+    def test_web_interface_shows_text_image_and_audio_prices(self):
+        project_root = Path(__file__).parents[1]
+        html = (project_root / "generator" / "webui" / "templates" / "index.html").read_text()
+        javascript = (project_root / "generator" / "webui" / "static" / "app.js").read_text()
+
+        self.assertIn('id="text-price-value"', html)
+        self.assertIn('id="image-price-value"', html)
+        self.assertIn("$30 / 1 млн символов", html)
+        self.assertIn("$0.006 за изображение", html)
+        self.assertIn("GPT Image 2", html)
+        self.assertIn('"gpt-5.6-luna"', javascript)
+        self.assertIn("syncOpenAIPricing", javascript)
+
     def test_selected_model_is_used_for_card_text_and_image_prompt(self):
         response = SimpleNamespace(output_text="generated")
         Config.TEXT_MODEL = "gpt-5.6-luna"
@@ -219,6 +234,34 @@ class OpenAIModelSettingsTests(unittest.TestCase):
         request = client_class.return_value.responses.create.call_args.kwargs
         self.assertEqual(request["temperature"], 0.2)
         self.assertNotIn("reasoning", request)
+
+
+class OpenAIImageTests(unittest.TestCase):
+    def test_uses_gpt_image_2_and_returns_inline_image_data(self):
+        encoded_image = base64.b64encode(b"png bytes").decode()
+        response = SimpleNamespace(data=[SimpleNamespace(b64_json=encoded_image, url=None)])
+
+        with mock.patch.object(openai_image, "OpenAI") as client_class:
+            client_class.return_value.images.generate.return_value = response
+            image_source = openai_image.chat_generate_image("a vocabulary illustration")
+
+        request = client_class.return_value.images.generate.call_args.kwargs
+        self.assertEqual(request["model"], "gpt-image-2")
+        self.assertEqual(request["size"], "1024x1024")
+        self.assertEqual(request["quality"], "low")
+        self.assertEqual(image_source, f"data:image/png;base64,{encoded_image}")
+
+    def test_inline_image_data_is_saved_without_an_http_request(self):
+        image_bytes = b"generated png bytes"
+        image_source = f"data:image/png;base64,{base64.b64encode(image_bytes).decode()}"
+
+        with tempfile.TemporaryDirectory() as directory:
+            image_path = Path(directory) / "card.png"
+            with mock.patch("generator.input.file_operations.requests.get") as get:
+                download_and_save_image(image_source, image_path)
+
+            get.assert_not_called()
+            self.assertEqual(image_path.read_bytes(), image_bytes)
 
 
 if __name__ == "__main__":

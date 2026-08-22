@@ -118,7 +118,7 @@
                                 <strong id="openai-settings-title">OpenAI</strong>
                                 <small>Ключ не сохраняется на диск</small>
                             </div>
-                            <span class="provider-badge">Текст</span>
+                            <span class="provider-badge">Текст · медиа</span>
                         </div>
                         <div class="provider-fields">
                             <label class="field">
@@ -150,6 +150,57 @@
                             </label>
                         </div>
                         <small class="provider-note">Luna подходит для массовой генерации карточек; Terra и Sol дают больше качества за более высокую цену. Доступность зависит от вашего API-проекта.</small>
+
+                        <section class="pricing-panel" aria-labelledby="pricing-title">
+                            <div class="pricing-heading">
+                                <div>
+                                    <strong id="pricing-title">Стоимость API</strong>
+                                    <small>Standard · обновлено 22.08.2026</small>
+                                </div>
+                                <a href="https://developers.openai.com/api/docs/pricing" target="_blank" rel="noreferrer">Официальные цены ↗</a>
+                            </div>
+
+                            <div class="pricing-grid">
+                                <article class="price-tile">
+                                    <span>Текст · <b id="text-price-model">GPT-5.6 Luna</b></span>
+                                    <strong id="text-price-value">$0.20 / $0.02 / $1.20</strong>
+                                    <small id="text-price-note">Вход / кэш / выход · за 1 млн токенов</small>
+                                </article>
+                                <article class="price-tile">
+                                    <span>Изображение · <b id="image-price-model">GPT Image 2</b></span>
+                                    <strong id="image-price-value">≈ $0.006 за изображение</strong>
+                                    <small id="image-price-note">1024×1024 · low, плюс вход prompt. Текст: $5 / $1.25; изображение: $8 / $2 / $30 за 1 млн токенов.</small>
+                                </article>
+                                <article class="price-tile">
+                                    <span>Аудио · <b>TTS-1 HD</b></span>
+                                    <strong>$30 / 1 млн символов</strong>
+                                    <small>$0.03 за 1 000 символов; в карточке озвучивается только слово</small>
+                                </article>
+                            </div>
+
+                            <details class="pricing-details">
+                                <summary>Сравнить все текстовые модели</summary>
+                                <div class="pricing-table-wrap">
+                                    <table class="pricing-table">
+                                        <thead>
+                                            <tr><th>Модель</th><th>Вход</th><th>Кэш</th><th>Выход</th></tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr><td>GPT-5.6 Luna</td><td>$0.20</td><td>$0.02</td><td>$1.20</td></tr>
+                                            <tr><td>GPT-5.6 Terra</td><td>$2.00</td><td>$0.20</td><td>$12.00</td></tr>
+                                            <tr><td>GPT-5.6 Sol <sup>*</sup></td><td>$4.00</td><td>$0.40</td><td>$20.00</td></tr>
+                                            <tr><td>GPT-5.4 nano</td><td>$0.20</td><td>$0.02</td><td>$1.25</td></tr>
+                                            <tr><td>GPT-5.4 mini</td><td>$0.75</td><td>$0.075</td><td>$4.50</td></tr>
+                                            <tr><td>GPT-4.1 mini</td><td>$0.40</td><td>$0.10</td><td>$1.60</td></tr>
+                                            <tr><td>GPT-4.1</td><td>$2.00</td><td>$0.50</td><td>$8.00</td></tr>
+                                            <tr><td>GPT-4o mini</td><td>$0.15</td><td>$0.075</td><td>$0.60</td></tr>
+                                            <tr><td>GPT-4o</td><td>$2.50</td><td>$1.25</td><td>$10.00</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <small class="pricing-footnote">USD за 1 млн токенов, Standard. <sup>*</sup> Для GPT-5.6 Sol действует промоцена как минимум до 21.11.2026.</small>
+                            </details>
+                        </section>
                     </section>
                     <div id="replicate-settings" class="subform field-full" hidden>
                         <label class="field">

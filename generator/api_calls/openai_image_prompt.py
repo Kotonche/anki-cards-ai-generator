@@ -4,7 +4,7 @@ from ..config import Config
 from ..entities import WordWithContext
 from .openai_response import generate_text
 
-anki_prompt_preamble = """I want you to act like a professional Anki card maker, able to create DALLE 3 prompts for the words I provide.
+anki_prompt_preamble = """I want you to act like a professional Anki card maker, able to create image-generation prompts for the words I provide.
 Each image prompt should be detailed and specific to ensure that the resulting image accurately represents the concept or item you need to portray. 
 
 For instance, if you need an image to help explain the concept of photosynthesis, the prompt should clearly mention key components like sunlight, plants, and perhaps the process of turning sunlight into energy.
@@ -29,15 +29,15 @@ But it is good to use people to show some interactions, related to the word.
 Each image prompt should be highly detailed and specific, ensuring that the resulting image accurately represents the concept or item. Include key attributes, actions, and surroundings that are associated with the word. For instance, 'photosynthesis' should not only mention sunlight and plants but also specify the action of converting sunlight into energy in a vibrant, healthy plant environment.
 Before finalizing an image, review the visual against a checklist to ensure it meets all the specified criteria: relevance to the word, absence of unintended text, and appropriateness of the content. Consider peer reviews or automated validation where possible.
 
-DALLE Rules Conformity:
-- Your prompt will be directly used as DALLE-3 input, do not include any explanations or further text, only prompt.
+Image Model Rules Conformity:
+- Your prompt will be directly used as image model input, do not include any explanations or further text, only prompt.
 - Avoid anything that can be construed as violent, explicit, or that depicts harmful or illegal activities.
 - Do not include any real personal data or identifiable information about individuals, whether they are public figures or private persons.
 - Avoid content that could be seen as derogatory, discriminatory, or offensive towards any group based on race, gender, ethnicity, religion, or any other protected characteristic.
 - Steer clear of creating content that could be used to spread misinformation or depict historical events inaccurately.
 - Do not use copyrighted characters, logos, or any specific recognizable branding elements.
 - Exclude any sexual or suggestive content, especially those involving minors.
-- You have to create a prompt, which will be accepted by DALLE-3.
+- You have to create a prompt which will be accepted by the image model.
 
 Prompt should be shorter than 256 tokens, but not too short.
 
@@ -48,16 +48,21 @@ Bad example: A wise owl perched on a tree branch, with a serene forest backgroun
 """
 
 
-def chat_generate_dalle_prompt(word_with_context: WordWithContext, card_text) -> str:
-    logging.info(f"DALLE prompt generation: processing word [{word_with_context.word}]")
-    logging.debug(f"DALLE prompt generation: processing card text [{card_text}]")
+def chat_generate_image_prompt(word_with_context: WordWithContext, card_text) -> str:
+    logging.info(f"Image prompt generation: processing word [{word_with_context.word}]")
+    logging.debug(f"Image prompt generation: processing card text [{card_text}]")
 
     user_input = f"WORD: [{word_with_context.word}]; CARD TEXT: [{card_text}]"
-    logging.debug(f"DALLE prompt generation input {user_input}")
+    logging.debug(f"Image prompt generation input {user_input}")
     generated_text = generate_text(
         instructions=anki_prompt_preamble,
         user_input=user_input,
         max_output_tokens=512,
     )
-    logging.info(f"Generated DALLE prompt: {generated_text}")
+    logging.info(f"Generated image prompt: {generated_text}")
     return generated_text
+
+
+def chat_generate_dalle_prompt(word_with_context: WordWithContext, card_text) -> str:
+    """Backward-compatible alias for integrations using the previous function name."""
+    return chat_generate_image_prompt(word_with_context, card_text)

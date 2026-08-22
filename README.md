@@ -32,7 +32,7 @@ Afterward, Anki can be synchronized with AnkiWeb, and the deck can be used from 
 The synchronization is very straightforward, and is described [here](https://docs.ankiweb.net/syncing.html).
 
 ## Prerequisites
-1. This is an application that automates Anki cards creation process using the ChatGPT, DALLE and TTS models. Your [OpenAI API](https://platform.openai.com/api-keys) key is required. You can set environment variable OPENAI_API_KEY (.env is supported) or use --openai_api_key option.
+1. This is an application that automates Anki cards creation process using OpenAI text, image and TTS models. Your [OpenAI API](https://platform.openai.com/api-keys) key is required. You can set environment variable OPENAI_API_KEY (.env is supported) or use --openai_api_key option.
    1. You can also choose to use cheaper models for image generation (e.g stable-diffusion) via Replicate. To use Replicate, the options --image_generation_mode, --replicate_api_key and --replicate_model_url must be set. You can also use environment variable REPLICATE_API_TOKEN.
 2. [Anki](https://apps.ankiweb.net/) must be installed.
 3. Add-on [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is used for the import of the cards. It must be installed. AnkiConnect website contains short installation guide.
@@ -131,7 +131,7 @@ free will;
 Card materials are created in the specified directory. 
 Tool creates for each word:
 - json with card text, paths and links
-- png with generated image (via Dalle3 from OpenAI or via custom model from Replicate)
+- png with generated image (via GPT Image 2 from OpenAI or via custom model from Replicate)
 - mp3 with generated audio
 - dictionary link (if the link was found)
 
@@ -143,8 +143,8 @@ Examples for different language levels can be found in [Levels Demo](demo/differ
 
 ## OpenAI API
 Text and image prompts: configurable with `--text_model` or in the web interface; defaults to [GPT-5.6 Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna)
-Image: [dall-e-3](https://platform.openai.com/docs/guides/images/usage), 3 RPM, 200 RPD - main throughput limitation  
-Audio: [tts-1-hd](https://platform.openai.com/docs/guides/text-to-speech)  
+Image: [GPT Image 2](https://developers.openai.com/api/docs/models/gpt-image-2), 1024×1024, low quality
+Audio: [TTS-1 HD](https://developers.openai.com/api/docs/models/tts-1-hd)
 
 ## Replicate API
 Reference image model: [stable-diffusion](https://replicate.com/stability-ai/stable-diffusion)  
@@ -153,12 +153,12 @@ You can use other Replicate model using --replicate_model_url option
 ### Cost
 Billing: https://platform.openai.com/settings/organization/billing/overview
 
-DALLE-3 call is the most expensive step, 0.04$ per image. This is expensive compared with free images, but:
+GPT Image 2 is billed by tokens. With the current 1024×1024 low-quality setting, image output costs approximately $0.006, plus the text prompt input. Standard rates are $5/$1.25 per 1M text input/cached tokens and $8/$2/$30 per 1M image input/cached/output tokens. This can be expensive compared with free images, but:
 - Sometimes it is really difficult to find an image that describes some abstract content.
 - These images boost (at least mine) learning process a lot
-- Cards are much better than DALLE-2 cards in this use case
+- Purpose-generated images work especially well for abstract vocabulary in this use case
 
-Text generation is much cheaper, less than 0.01$ per card. Total cost of a card is <= 0.05$ pro card.
+Text generation price depends on the selected model. TTS-1 HD costs $30 per 1M characters ($0.03 per 1,000 characters); only the target word is voiced. Current text, image and audio rates are shown directly in the web interface and on the [official pricing page](https://developers.openai.com/api/docs/pricing).
 
 Alternatively, you can use a custom model for image generation from Replicate, potentially cutting the costs of image generation to a fraction of cent. 
 

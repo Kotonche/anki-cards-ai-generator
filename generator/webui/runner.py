@@ -169,7 +169,7 @@ def run_generation_job(manager, job_id: str) -> None:
         has_more_cards = index < len(cards) - 1
         if has_more_cards and generated_this_card and Config.IMAGE_GENERATION_MODE == "openai":
             manager.set_job(job_id, message="Ожидание лимита генерации изображений")
-            time.sleep(Config.SECONDS_WAIT_BETWEEN_DALLE_CALLS)
+            time.sleep(Config.SECONDS_WAIT_BETWEEN_IMAGE_CALLS)
 
     status = "completed_with_errors" if errors else "completed"
     message = "Готово, но некоторые карточки завершились ошибкой" if errors else "Все карточки обработаны"

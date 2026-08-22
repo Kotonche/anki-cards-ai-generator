@@ -25,8 +25,12 @@ class Config:
     OPENAI_API_KEY: str = None
     DEFAULT_TEXT_MODEL: str = "gpt-5.6-luna"
     TEXT_MODEL: str = DEFAULT_TEXT_MODEL
+    OPENAI_IMAGE_MODEL: str = "gpt-image-2"
+    OPENAI_IMAGE_SIZE: str = "1024x1024"
+    OPENAI_IMAGE_QUALITY: str = "low"
+    OPENAI_AUDIO_MODEL: str = "tts-1-hd"
 
-    SECONDS_WAIT_BETWEEN_DALLE_CALLS: int = 20
+    SECONDS_WAIT_BETWEEN_IMAGE_CALLS: int = 20
     DECK_NAME: str = None
     ANKI_MEDIA_DIRECTORY: str = None
     PROCESSING_DIRECTORY_PATH: str = None

@@ -1,3 +1,5 @@
+import base64
+import binascii
 import json
 import logging
 import os
@@ -48,6 +50,19 @@ def generate_audio_path(processing_directory_path: str, word: WordWithContext) -
 
 
 def download_and_save_image(url, image_path):
+    if url.startswith("data:image/"):
+        header, separator, encoded_image = url.partition(",")
+        if not separator or ";base64" not in header:
+            raise IOError("Unsupported inline image format")
+        try:
+            image_bytes = base64.b64decode(encoded_image, validate=True)
+        except (binascii.Error, ValueError) as error:
+            raise IOError("Failed to decode inline image data") from error
+        with open(image_path, 'wb') as file:
+            file.write(image_bytes)
+        logging.info(f"Image saved as {image_path}")
+        return
+
     response = requests.get(url)
     if response.status_code == 200:
         with open(image_path, 'wb') as f:

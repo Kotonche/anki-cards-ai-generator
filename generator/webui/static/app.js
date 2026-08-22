@@ -21,6 +21,17 @@ const levelsByLanguage = {
     greek: ["A1", "A2"],
 };
 const defaultLevelByLanguage = {english: "C1", german: "C1", greek: "A1"};
+const textModelPrices = {
+    "gpt-5.6-luna": {name: "GPT-5.6 Luna", input: "$0.20", cached: "$0.02", output: "$1.20"},
+    "gpt-5.6-terra": {name: "GPT-5.6 Terra", input: "$2.00", cached: "$0.20", output: "$12.00"},
+    "gpt-5.6-sol": {name: "GPT-5.6 Sol", input: "$4.00", cached: "$0.40", output: "$20.00", note: "Промоцена; вход / кэш / выход · за 1 млн токенов"},
+    "gpt-5.4-nano": {name: "GPT-5.4 nano", input: "$0.20", cached: "$0.02", output: "$1.25"},
+    "gpt-5.4-mini": {name: "GPT-5.4 mini", input: "$0.75", cached: "$0.075", output: "$4.50"},
+    "gpt-4.1-mini": {name: "GPT-4.1 mini", input: "$0.40", cached: "$0.10", output: "$1.60"},
+    "gpt-4.1": {name: "GPT-4.1", input: "$2.00", cached: "$0.50", output: "$8.00"},
+    "gpt-4o-mini": {name: "GPT-4o mini", input: "$0.15", cached: "$0.075", output: "$0.60"},
+    "gpt-4o": {name: "GPT-4o", input: "$2.50", cached: "$1.25", output: "$10.00"},
+};
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -151,6 +162,31 @@ function syncCustomTextModel() {
     const custom = $("#text-model").value === "__custom__";
     $("#custom-text-model-field").hidden = !custom;
     if (custom) $("#custom-text-model").focus();
+    syncOpenAIPricing();
+}
+
+function syncOpenAIPricing() {
+    const selected = $("#text-model").value;
+    const pricing = textModelPrices[selected];
+    if (pricing) {
+        $("#text-price-model").textContent = pricing.name;
+        $("#text-price-value").textContent = `${pricing.input} / ${pricing.cached} / ${pricing.output}`;
+        $("#text-price-note").textContent = pricing.note || "Вход / кэш / выход · за 1 млн токенов";
+    } else {
+        const customName = $("#custom-text-model").value.trim();
+        $("#text-price-model").textContent = customName || "другая модель";
+        $("#text-price-value").textContent = "Цена не указана";
+        $("#text-price-note").textContent = "Проверьте тариф для выбранного ID в документации OpenAI";
+    }
+
+    const usesOpenAIImages = $("#image-mode").value === "openai";
+    $("#image-price-model").textContent = usesOpenAIImages ? "GPT Image 2" : "Replicate";
+    $("#image-price-value").textContent = usesOpenAIImages
+        ? "≈ $0.006 за изображение"
+        : "Зависит от выбранной модели";
+    $("#image-price-note").textContent = usesOpenAIImages
+        ? "1024×1024 · low, плюс вход prompt. Текст: $5 / $1.25; изображение: $8 / $2 / $30 за 1 млн токенов."
+        : "Проверьте стоимость версии модели на странице Replicate";
 }
 
 async function startJob() {
@@ -353,9 +389,11 @@ $("#file-input").addEventListener("change", (event) => {
 });
 $("#image-mode").addEventListener("change", (event) => {
     $("#replicate-settings").hidden = event.target.value !== "replicate";
+    syncOpenAIPricing();
 });
 $("#language").addEventListener("change", syncLanguageLevels);
 $("#text-model").addEventListener("change", syncCustomTextModel);
+$("#custom-text-model").addEventListener("input", syncOpenAIPricing);
 $("#example-button").addEventListener("click", () => {
     $("#file-input").value = "";
     $("#file-label").textContent = "До 10 МБ · колонки word и context";

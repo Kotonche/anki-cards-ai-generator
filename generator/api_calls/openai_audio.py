@@ -13,7 +13,7 @@ def chat_generate_and_save_audio(word: str, target_file_path: str):
 
     # use period for pause
     with client.audio.speech.with_streaming_response.create(
-            model="tts-1-hd",
+            model=Config.OPENAI_AUDIO_MODEL,
             voice="nova",
             input=". " + word + ". ",
 
