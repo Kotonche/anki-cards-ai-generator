@@ -111,6 +111,7 @@ function settingsPayload() {
         image_generation_mode: $("#image-mode").value,
         duplicate_policy: $("#duplicate-policy").value,
         openai_api_key: $("#openai-key").value.trim(),
+        text_model: $("#text-model").value.trim(),
         replicate_api_key: $("#replicate-key").value.trim(),
         replicate_model_url: $("#replicate-model").value.trim(),
         processing_directory: $("#processing-directory").value.trim(),

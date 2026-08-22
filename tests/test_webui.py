@@ -2,9 +2,13 @@ import base64
 import errno
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
+from generator.api_calls import openai_image_prompt, openai_text
 from generator.api_calls.text_prompt_by_language import prompt_by_language
 from generator.config import A1, A2, C1, Config, GREEK
+from generator.entities import WordWithContext
 from generator.webui.input_parser import InputError, parse_text, parse_uploaded_file
 from generator.webui.jobs import JobError, JobManager
 from generator.webui.server import create_server_with_fallback
@@ -161,6 +165,53 @@ class CardPreviewTests(unittest.TestCase):
         self.assertIn('id="preview-back"', html)
         self.assertIn('id="preview-back-word"', html)
         self.assertIn("function setPreviewSide", javascript)
+
+
+class OpenAIModelSettingsTests(unittest.TestCase):
+    def tearDown(self):
+        Config.TEXT_MODEL = Config.DEFAULT_TEXT_MODEL
+
+    def test_custom_text_model_is_trimmed_and_stored(self):
+        Config.set_text_model_or_use_default("  gpt-4.1-mini  ")
+
+        self.assertEqual(Config.TEXT_MODEL, "gpt-4.1-mini")
+
+    def test_web_interface_sends_api_key_and_text_model(self):
+        project_root = Path(__file__).parents[1]
+        html = (project_root / "generator" / "webui" / "templates" / "index.html").read_text()
+        javascript = (project_root / "generator" / "webui" / "static" / "app.js").read_text()
+
+        self.assertIn('id="openai-key"', html)
+        self.assertIn('id="text-model"', html)
+        self.assertIn('list="text-model-options"', html)
+        self.assertIn('text_model: $("#text-model").value.trim()', javascript)
+
+    def test_selected_model_is_used_for_card_text_and_image_prompt(self):
+        response = SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="generated"))],
+        )
+        Config.TEXT_MODEL = "gpt-4.1-mini"
+        word = WordWithContext("hello", "greeting")
+
+        with (
+            mock.patch.object(openai_text, "OpenAI") as text_client_class,
+            mock.patch.object(openai_text.prompt_by_language, "get_system_prompt_by_language", return_value="prompt"),
+        ):
+            text_client_class.return_value.chat.completions.create.return_value = response
+            openai_text.chat_generate_text(word)
+
+        with mock.patch.object(openai_image_prompt, "OpenAI") as prompt_client_class:
+            prompt_client_class.return_value.chat.completions.create.return_value = response
+            openai_image_prompt.chat_generate_dalle_prompt(word, "card text")
+
+        self.assertEqual(
+            text_client_class.return_value.chat.completions.create.call_args.kwargs["model"],
+            "gpt-4.1-mini",
+        )
+        self.assertEqual(
+            prompt_client_class.return_value.chat.completions.create.call_args.kwargs["model"],
+            "gpt-4.1-mini",
+        )
 
 
 if __name__ == "__main__":

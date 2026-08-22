@@ -65,7 +65,7 @@ def chat_generate_dalle_prompt(word_with_context: WordWithContext, card_text) ->
         # input prompt
         messages=messages,
         # model parameters
-        model="gpt-4o",
+        model=Config.TEXT_MODEL,
         temperature=0.2,
         max_tokens=256,
         n=1,

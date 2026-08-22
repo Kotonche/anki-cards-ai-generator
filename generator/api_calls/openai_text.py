@@ -27,7 +27,7 @@ def chat_generate_text(word_with_context: WordWithContext) -> str:
         # input prompt
         messages=messages,
         # model parameters
-        model="gpt-4o",
+        model=Config.TEXT_MODEL,
         temperature=0.2,  # keep low for conservative answers
         max_tokens=512,
         n=1,

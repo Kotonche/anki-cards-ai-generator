@@ -23,6 +23,8 @@ REPLICATE = "replicate"
 
 class Config:
     OPENAI_API_KEY: str = None
+    DEFAULT_TEXT_MODEL: str = "gpt-4o"
+    TEXT_MODEL: str = DEFAULT_TEXT_MODEL
 
     SECONDS_WAIT_BETWEEN_DALLE_CALLS: int = 20
     DECK_NAME: str = None
@@ -100,6 +102,16 @@ class Config:
             cls.setup_openai_api_key_from_environment()
         else:
             cls.OPENAI_API_KEY = api_key
+
+    @classmethod
+    def set_text_model_or_use_default(cls, text_model: str):
+        if text_model is None:
+            cls.TEXT_MODEL = cls.DEFAULT_TEXT_MODEL
+        else:
+            cls.TEXT_MODEL = text_model.strip()
+            if not cls.TEXT_MODEL:
+                raise ValueError("OpenAI text model must not be empty")
+        logging.info(f"OpenAI text model set to [{cls.TEXT_MODEL}]")
 
     @classmethod
     def set_language_or_use_default(cls, language: str):

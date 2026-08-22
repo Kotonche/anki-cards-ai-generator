@@ -112,10 +112,32 @@
                             <option value="allow">Разрешать</option>
                         </select>
                     </label>
-                    <label class="field field-full">
-                        <span>OpenAI API key</span>
-                        <input id="openai-key" type="password" placeholder="Оставьте пустым, чтобы использовать .env" autocomplete="off">
-                    </label>
+                    <section class="provider-card field-full" aria-labelledby="openai-settings-title">
+                        <div class="provider-heading">
+                            <div>
+                                <strong id="openai-settings-title">OpenAI</strong>
+                                <small>Ключ не сохраняется на диск</small>
+                            </div>
+                            <span class="provider-badge">Текст</span>
+                        </div>
+                        <div class="provider-fields">
+                            <label class="field">
+                                <span>API key</span>
+                                <input id="openai-key" type="password" placeholder="Оставьте пустым, чтобы использовать .env" autocomplete="off" spellcheck="false">
+                            </label>
+                            <label class="field">
+                                <span>Модель текста</span>
+                                <input id="text-model" type="text" list="text-model-options" value="gpt-4o" autocomplete="off" spellcheck="false">
+                                <datalist id="text-model-options">
+                                    <option value="gpt-4o"></option>
+                                    <option value="gpt-4o-mini"></option>
+                                    <option value="gpt-4.1"></option>
+                                    <option value="gpt-4.1-mini"></option>
+                                </datalist>
+                            </label>
+                        </div>
+                        <small class="provider-note">Выбранная модель создаёт текст карточки и промпт для изображения. Можно вписать другой ID модели вручную.</small>
+                    </section>
                     <div id="replicate-settings" class="subform field-full" hidden>
                         <label class="field">
                             <span>Replicate API key</span>

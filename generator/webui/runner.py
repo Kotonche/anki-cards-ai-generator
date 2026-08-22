@@ -32,6 +32,7 @@ def _configure(settings: dict, needs_anki: bool) -> None:
 
     Config.setup_logging()
     Config.set_openai_key_or_use_default(settings.get("openai_api_key") or None)
+    Config.set_text_model_or_use_default(settings.get("text_model") or None)
     Config.set_image_generation_mode_or_use_default(settings.get("image_generation_mode", "openai"))
     Config.set_replicate_token_and_url_if_replicate_mode_used(
         settings.get("replicate_api_key") or None,

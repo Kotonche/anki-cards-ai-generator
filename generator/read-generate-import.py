@@ -51,6 +51,7 @@ def main():
 
     # Optional arguments
     parser.add_argument('--openai_api_key', type=str, help="API key for OpenAI. If not set, the value from environment variable OPENAI_API_KEY is used", default=None)
+    parser.add_argument('--text_model', type=str, help="OpenAI model used to generate card text and image prompts", default=Config.DEFAULT_TEXT_MODEL)
     parser.add_argument('--deck_name', type=str, help="Name of the Anki deck. If not set, the default name is generated", default=None)
     parser.add_argument('--anki_media_directory_path', type=str, help="Path to the Anki media directory. If not set, the standard path for each OS is used", default=None)
     parser.add_argument('--language', type=str, help="Target card language. Not only the card translation, customized generation process for each language", default=Config.DEFAULT_LANGUAGE, choices=Config.SUPPORTED_LANGUAGES)
@@ -67,6 +68,7 @@ def main():
     # Setup config
     Config.setup_logging()
     Config.set_openai_key_or_use_default(args.openai_api_key)
+    Config.set_text_model_or_use_default(args.text_model)
     Config.set_image_generation_mode_or_use_default(args.image_generation_mode)
     Config.set_replicate_token_and_url_if_replicate_mode_used(args.replicate_api_key, args.replicate_model_url)
     Config.set_anki_deck_name_or_use_default(args.deck_name)
