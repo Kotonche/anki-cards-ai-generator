@@ -27,6 +27,17 @@ AUDIO_PRICES_PER_MILLION_CHARACTERS = {
     "tts-1-hd": 30.00,
     "tts-1": 15.00,
 }
+AUDIO_TOKEN_PRICES_PER_MILLION = {
+    "gpt-4o-mini-tts": {"input": 0.60, "output": 12.00},
+}
+
+# The Speech endpoint returns audio bytes without token usage. These conversion
+# assumptions keep the batch total useful while clearly marking the result as
+# an estimate. Input text is approximated at four characters per token; spoken
+# output is approximated at 20 audio tokens per second and about 9.5 spoken
+# characters per second for clear learner-oriented speech.
+AUDIO_INPUT_CHARACTERS_PER_TOKEN_ESTIMATE = 4
+AUDIO_OUTPUT_TOKENS_PER_CHARACTER_ESTIMATE = 2.1
 
 
 def _value(obj, name: str, default=None):
@@ -203,9 +214,27 @@ def record_image_response(response, model: str, size: str, quality: str, prompt:
     tracker.record("image", model, cost, estimated=True)
 
 
-def record_audio_speech(text: str, model: str) -> None:
+def record_audio_speech(text: str, model: str, *, instructions: str = "") -> None:
     tracker = _active_tracker()
     if tracker is None:
+        return
+
+    token_prices = AUDIO_TOKEN_PRICES_PER_MILLION.get(model)
+    if token_prices is not None:
+        input_characters = len(text) + len(instructions)
+        input_tokens = max(
+            1,
+            math.ceil(input_characters / AUDIO_INPUT_CHARACTERS_PER_TOKEN_ESTIMATE),
+        )
+        output_tokens = max(
+            1,
+            math.ceil(len(text) * AUDIO_OUTPUT_TOKENS_PER_CHARACTER_ESTIMATE),
+        )
+        cost = (
+            input_tokens * token_prices["input"]
+            + output_tokens * token_prices["output"]
+        ) / 1_000_000
+        tracker.record("audio", model, cost, estimated=True)
         return
 
     price = AUDIO_PRICES_PER_MILLION_CHARACTERS.get(model)

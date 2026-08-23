@@ -3,7 +3,7 @@ import unittest
 from types import SimpleNamespace
 from unittest import mock
 
-from generator.api_calls import openai_image, openai_response
+from generator.api_calls import openai_audio, openai_image, openai_response
 from generator.api_costs import (
     ApiCostTracker,
     record_audio_speech,
@@ -74,6 +74,22 @@ class ApiCostTrackerTests(unittest.TestCase):
         self.assertTrue(summary["estimated"])
         self.assertTrue(summary["complete"])
 
+    def test_estimates_token_priced_audio_cost(self):
+        tracker = ApiCostTracker()
+
+        with tracking_api_costs(tracker):
+            record_audio_speech(
+                "x" * 20,
+                "gpt-4o-mini-tts",
+                instructions="y" * 40,
+            )
+
+        summary = tracker.summary(generated_items=1)
+
+        self.assertAlmostEqual(summary["components"]["audio"], 0.000513)
+        self.assertTrue(summary["complete"])
+        self.assertTrue(summary["estimated"])
+
     def test_marks_unpriced_provider_as_incomplete(self):
         tracker = ApiCostTracker()
 
@@ -140,6 +156,41 @@ class ApiCostTrackerTests(unittest.TestCase):
 
         self.assertEqual(tracker.summary()["request_count"], 1)
         self.assertAlmostEqual(tracker.summary()["components"]["image"], 0.0065)
+
+    def test_openai_audio_uses_recommended_greek_settings(self):
+        previous = (
+            Config.OPENAI_API_KEY,
+            Config.LANGUAGE,
+            Config.OPENAI_AUDIO_MODEL,
+            Config.OPENAI_AUDIO_VOICE,
+        )
+        Config.OPENAI_API_KEY = "test-key"
+        Config.LANGUAGE = "greek"
+        Config.OPENAI_AUDIO_MODEL = "gpt-4o-mini-tts"
+        Config.OPENAI_AUDIO_VOICE = "marin"
+        try:
+            with mock.patch.object(openai_audio, "OpenAI") as client_class:
+                response = mock.MagicMock()
+                context = client_class.return_value.audio.speech.with_streaming_response.create.return_value
+                context.__enter__.return_value = response
+
+                openai_audio.chat_generate_and_save_audio("  η σαλάτα  ", "/tmp/salad.mp3")
+        finally:
+            (
+                Config.OPENAI_API_KEY,
+                Config.LANGUAGE,
+                Config.OPENAI_AUDIO_MODEL,
+                Config.OPENAI_AUDIO_VOICE,
+            ) = previous
+
+        request = client_class.return_value.audio.speech.with_streaming_response.create.call_args.kwargs
+        self.assertEqual(request["model"], "gpt-4o-mini-tts")
+        self.assertEqual(request["voice"], "marin")
+        self.assertEqual(request["input"], "η σαλάτα")
+        self.assertIn("Modern Greek", request["instructions"])
+        self.assertIn("Do not translate", request["instructions"])
+        self.assertEqual(request["response_format"], "mp3")
+        response.stream_to_file.assert_called_once_with("/tmp/salad.mp3")
 
 
 if __name__ == "__main__":

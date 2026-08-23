@@ -305,7 +305,8 @@ class OpenAIModelSettingsTests(unittest.TestCase):
 
         self.assertIn('id="text-price-value"', html)
         self.assertIn('id="image-price-value"', html)
-        self.assertIn("$30 / 1 млн символов", html)
+        self.assertIn("$0.60 / $12 за 1 млн токенов", html)
+        self.assertIn("GPT-4o mini TTS", html)
         self.assertIn("$0.006 за изображение", html)
         self.assertIn("GPT Image 2", html)
         self.assertIn('"gpt-5.6-luna"', javascript)
@@ -320,7 +321,7 @@ class OpenAIModelSettingsTests(unittest.TestCase):
         self.assertIn('id="card-cost-text"', html)
         self.assertIn('id="card-cost-image"', html)
         self.assertIn('id="card-cost-audio"', html)
-        self.assertIn("≈ $0.0086", html)
+        self.assertIn("≈ $0.0084", html)
         self.assertIn("function calculateCardCost", javascript)
         self.assertIn("textInputTokens: 2500", javascript)
         self.assertIn("syncCardCostEstimate", javascript)

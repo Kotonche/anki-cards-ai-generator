@@ -41,9 +41,11 @@ const cardCostAssumptions = {
     imagePromptTokens: 200,
     imageTextInputPerMillion: 5,
     imageOutputCost: 0.006,
-    ttsPerMillionCharacters: 30,
+    ttsTextInputPerMillion: 0.60,
+    ttsAudioOutputPerMillion: 12,
+    ttsInstructionTokensPerRequest: 50,
+    ttsOutputTokensPerSpokenCharacter: 2.1,
     defaultWordCharacters: 12,
-    ttsPaddingCharacters: 4,
     greekContextCharacters: 75,
 };
 const greekCardTypes = [
@@ -222,8 +224,8 @@ function syncLanguageLevels() {
         ? "Для греческого автоматически создаётся безопасная версия Greek Vocabulary v1."
         : "Используется для английских и немецких карточек.";
     $("#audio-price-note").textContent = isGreek
-        ? "$0.03 за 1 000 символов; создаются аудио слова с артиклем и полной фразы"
-        : "$0.03 за 1 000 символов; в карточке озвучивается только слово";
+        ? "Голос Marin; вход $0.60, аудиовыход $12 за 1 млн токенов; озвучиваются слово с артиклем и полная фраза"
+        : "Голос Marin; вход $0.60, аудиовыход $12 за 1 млн токенов; озвучивается только слово";
     $("#greek-audio-note").hidden = !isGreek;
     $("#preview-template").value = isGreek ? "greek-vocabulary" : "classic";
     syncCardCostEstimate();
@@ -284,12 +286,25 @@ function estimatedAudioCharacters() {
         ? words.reduce((total, word) => total + word.length, 0) / words.length
         : cardCostAssumptions.defaultWordCharacters;
     const greekContext = $("#language").value === "greek"
-        ? cardCostAssumptions.greekContextCharacters + cardCostAssumptions.ttsPaddingCharacters
+        ? cardCostAssumptions.greekContextCharacters
         : 0;
-    return Math.round(averageWordCharacters + cardCostAssumptions.ttsPaddingCharacters + greekContext);
+    return Math.round(averageWordCharacters + greekContext);
 }
 
-function calculateCardCost(pricing, usesOpenAIImages, audioCharacters) {
+function calculateAudioCost(audioCharacters, requestCount) {
+    const inputTokens = Math.ceil(audioCharacters / 4)
+        + requestCount * cardCostAssumptions.ttsInstructionTokensPerRequest;
+    const outputTokens = Math.ceil(
+        audioCharacters * cardCostAssumptions.ttsOutputTokensPerSpokenCharacter,
+    );
+    const cost = (
+        inputTokens * cardCostAssumptions.ttsTextInputPerMillion
+        + outputTokens * cardCostAssumptions.ttsAudioOutputPerMillion
+    ) / 1_000_000;
+    return {cost, inputTokens, outputTokens};
+}
+
+function calculateCardCost(pricing, usesOpenAIImages, audioCharacters, audioRequestCount) {
     if (!pricing) return null;
     const text = (
         cardCostAssumptions.textInputTokens * pricing.input
@@ -299,7 +314,7 @@ function calculateCardCost(pricing, usesOpenAIImages, audioCharacters) {
         ? cardCostAssumptions.imageOutputCost
             + cardCostAssumptions.imagePromptTokens * cardCostAssumptions.imageTextInputPerMillion / 1_000_000
         : null;
-    const audio = audioCharacters * cardCostAssumptions.ttsPerMillionCharacters / 1_000_000;
+    const audio = calculateAudioCost(audioCharacters, audioRequestCount).cost;
     return {text, image, audio, knownTotal: text + audio + (image || 0)};
 }
 
@@ -308,17 +323,23 @@ function syncCardCostEstimate() {
     const usesOpenAIImages = $("#image-mode").value === "openai";
     const isGreek = $("#language").value === "greek";
     const audioCharacters = estimatedAudioCharacters();
-    const estimate = calculateCardCost(pricing, usesOpenAIImages, audioCharacters);
+    const audioRequestCount = isGreek ? 2 : 1;
+    const audioEstimate = calculateAudioCost(audioCharacters, audioRequestCount);
+    const estimate = calculateCardCost(
+        pricing,
+        usesOpenAIImages,
+        audioCharacters,
+        audioRequestCount,
+    );
     $("#card-cost-title").textContent = isGreek
         ? "Примерно за 1 заметку · до 3 карточек"
         : "Примерно за 1 новую карточку";
 
     if (!estimate) {
-        const audioCost = audioCharacters * cardCostAssumptions.ttsPerMillionCharacters / 1_000_000;
         $("#card-cost-total").textContent = "Нет полной оценки";
         $("#card-cost-text").textContent = "нет тарифа";
         $("#card-cost-image").textContent = usesOpenAIImages ? "≈ $0.0070" : "тариф Replicate";
-        $("#card-cost-audio").textContent = `≈ ${formatEstimatedCost(audioCost)}`;
+        $("#card-cost-audio").textContent = `≈ ${formatEstimatedCost(audioEstimate.cost)}`;
         $("#card-cost-summary").textContent = "Для собственного ID модели нужна известная цена";
     } else {
         $("#card-cost-total").textContent = usesOpenAIImages
@@ -330,10 +351,10 @@ function syncCardCostEstimate() {
             : `≈ ${formatEstimatedCost(estimate.image)}`;
         $("#card-cost-audio").textContent = `≈ ${formatEstimatedCost(estimate.audio)}`;
         $("#card-cost-summary").textContent = usesOpenAIImages
-            ? `${pricing.name} · изображение OpenAI · ${isGreek ? "2 аудио" : "TTS-1 HD"}`
-            : `${pricing.name} · без цены Replicate · ${isGreek ? "2 аудио" : "TTS-1 HD"}`;
+            ? `${pricing.name} · изображение OpenAI · GPT-4o mini TTS${isGreek ? " · 2 аудио" : ""}`
+            : `${pricing.name} · без цены Replicate · GPT-4o mini TTS${isGreek ? " · 2 аудио" : ""}`;
     }
-    $("#card-cost-assumptions").textContent = `Оценка: 2 500 входных + 500 выходных/reasoning-токенов текста, 200 токенов image prompt, ${audioCharacters} символов TTS${isGreek ? " для слова и фразы" : ""}. Без кэша.`;
+    $("#card-cost-assumptions").textContent = `Оценка: 2 500 входных + 500 выходных/reasoning-токенов текста, 200 токенов image prompt, ≈ ${audioEstimate.inputTokens} входных + ${audioEstimate.outputTokens} аудиотокенов TTS${isGreek ? " для слова и фразы" : ""}. Без кэша.`;
 }
 
 async function startJob() {

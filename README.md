@@ -156,7 +156,7 @@ Examples for different language levels can be found in [Levels Demo](demo/differ
 ## OpenAI API
 Text and image prompts: configurable with `--text_model` or in the web interface; defaults to [GPT-5.6 Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna)
 Image: [GPT Image 2](https://developers.openai.com/api/docs/models/gpt-image-2), 1024×1024, low quality
-Audio: [TTS-1 HD](https://developers.openai.com/api/docs/models/tts-1-hd)
+Audio: [GPT-4o mini TTS](https://developers.openai.com/api/docs/models/gpt-4o-mini-tts), using the recommended `marin` voice and language-specific pronunciation instructions
 
 ## Replicate API
 Reference image model: [stable-diffusion](https://replicate.com/stability-ai/stable-diffusion)  
@@ -170,7 +170,7 @@ GPT Image 2 is billed by tokens. With the current 1024×1024 low-quality setting
 - These images boost (at least mine) learning process a lot
 - Purpose-generated images work especially well for abstract vocabulary in this use case
 
-Text generation price depends on the selected model. TTS-1 HD costs $30 per 1M characters ($0.03 per 1,000 characters); English and German voice the target word, while Greek voices both the word with its article and the example phrase. Current rates, a pre-generation estimate, and the running batch total are shown directly in the web interface and on the [official pricing page](https://developers.openai.com/api/docs/pricing). The batch total uses returned API token usage, actual TTS character counts, and an image estimate when token usage is unavailable. It is an estimate rather than an OpenAI billing statement; unknown third-party provider costs are explicitly excluded.
+Text generation price depends on the selected model. GPT-4o mini TTS costs $0.60 per 1M text input tokens and $12 per 1M audio output tokens; English and German voice the target word, while Greek voices both the word with its article and the example phrase. Current rates, a pre-generation estimate, and the running batch total are shown directly in the web interface and on the [official pricing page](https://developers.openai.com/api/docs/pricing). The batch total uses returned API token usage when available. Because the Speech endpoint returns audio without token usage, its TTS amount is estimated from the instruction/input length and expected spoken duration; image cost is also estimated when usage is unavailable. It is an estimate rather than an OpenAI billing statement; unknown third-party provider costs are explicitly excluded.
 
 Alternatively, you can use a custom model for image generation from Replicate, potentially cutting the costs of image generation to a fraction of cent. 
 

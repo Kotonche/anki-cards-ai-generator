@@ -28,7 +28,8 @@ class Config:
     OPENAI_IMAGE_MODEL: str = "gpt-image-2"
     OPENAI_IMAGE_SIZE: str = "1024x1024"
     OPENAI_IMAGE_QUALITY: str = "low"
-    OPENAI_AUDIO_MODEL: str = "tts-1-hd"
+    OPENAI_AUDIO_MODEL: str = "gpt-4o-mini-tts"
+    OPENAI_AUDIO_VOICE: str = "marin"
 
     SECONDS_WAIT_BETWEEN_IMAGE_CALLS: int = 20
     DECK_NAME: str = None
