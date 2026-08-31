@@ -140,6 +140,12 @@ def format_greek_vocabulary(card_data: GreekVocabularyDataV1, deck_name: str):
             "ContextClozeTranscription": card_data.context_cloze_transcription,
             "ContextAnswer": card_data.context_answer,
             "ContextAudio": context_audio,
+            "Distractor1": card_data.distractor1,
+            "Distractor1Transcription": card_data.distractor1_transcription,
+            "Distractor2": card_data.distractor2,
+            "Distractor2Transcription": card_data.distractor2_transcription,
+            "Distractor3": card_data.distractor3,
+            "Distractor3Transcription": card_data.distractor3_transcription,
         },
         "options": {
             "allowDuplicate": True,

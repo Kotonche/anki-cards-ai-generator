@@ -38,6 +38,7 @@ const textModelPrices = {
 const cardCostAssumptions = {
     textInputTokens: 2500,
     textOutputTokens: 500,
+    greekTextOutputTokens: 650,
     imagePromptTokens: 200,
     imageTextInputPerMillion: 5,
     imageOutputCost: 0.006,
@@ -49,9 +50,10 @@ const cardCostAssumptions = {
     greekContextCharacters: 75,
 };
 const greekCardTypes = [
-    {id: "production", name: "ACTIVE RECALL · Production"},
-    {id: "recognition", name: "RECOGNITION · Comprehension"},
-    {id: "context", name: "CONTEXT RECALL · Usage"},
+    {id: "multiple-choice", name: "01 · Recognition Boost · Multiple Choice"},
+    {id: "recognition", name: "02 · Recognition · Comprehension"},
+    {id: "context", name: "03 · Context Recall · Usage"},
+    {id: "production", name: "04 · Active Recall · Production"},
 ];
 const previewTemplates = {
     classic: {
@@ -67,7 +69,7 @@ const previewTemplates = {
     },
     "greek-vocabulary": {
         name: "Greek Vocabulary",
-        description: "одна заметка · три независимые карточки",
+        description: "одна заметка · четыре независимые карточки",
         cardTypes: greekCardTypes,
         sample: {
             article: "η",
@@ -80,7 +82,14 @@ const previewTemplates = {
             context_cloze: "Άνοιξε την _____, σε παρακαλώ.",
             context_cloze_transcription: "Аниксе тин _____, се паракалО.",
             context_answer: "πόρτα",
+            distractor1: "η καρέκλα",
+            distractor1_transcription: "и карЭкла",
+            distractor2: "η κουζίνα",
+            distractor2_transcription: "и кузИна",
+            distractor3: "η τσάντα",
+            distractor3_transcription: "и цАнда",
             has_context: true,
+            has_multiple_choice: true,
             image_url: "/static/classic-template-sample.svg",
         },
     },
@@ -191,6 +200,7 @@ function settingsPayload() {
         anki_media_directory: $("#anki-media-directory").value.trim(),
         create_deck: $("#create-deck").checked,
         import_after_generation: $("#import-after").checked,
+        space_new_siblings: $("#space-new-siblings").checked,
     };
 }
 
@@ -212,22 +222,27 @@ function syncLanguageLevels() {
         ? previousLevel
         : defaultLevelByLanguage[language];
 
-    $("#words-input-label").textContent = isGreek ? "Русские слова и контекст" : "Слова и контекст";
+    $("#words-input-label").textContent = isGreek ? "Русские слова, контекст и фраза" : "Слова и контекст";
     $("#words-input").placeholder = isGreek
-        ? "дверь;дом\nпокупка;магазин\nвстречаться;друзья"
+        ? "дверь;;Открой дверь, пожалуйста.\nсыр;;Я хочу немного сыра.\nвстречаться;друзья"
         : "purchasing power;economics\nconsciousness;philosophy\nfree will";
     $("#words-input-help").textContent = isGreek
-        ? "Введите по-русски. Модель создаст греческое слово, артикль, транскрипцию и пример."
+        ? "Формат: слово; контекст значения; желаемая русская фраза. Фразу также можно вписать после подготовки; пустую модель создаст сама."
         : "Одно слово на строку. Контекст можно добавить после точки с запятой.";
     $("#card-model").disabled = isGreek;
     $("#card-model-note").textContent = isGreek
-        ? "Для греческого автоматически создаётся безопасная версия Greek Vocabulary v1."
+        ? "Для греческого автоматически создаётся совместимая версия Greek Vocabulary."
         : "Используется для английских и немецких карточек.";
     $("#audio-price-note").textContent = isGreek
         ? "Голос Marin; вход $0.60, аудиовыход $12 за 1 млн токенов; озвучиваются слово с артиклем и полная фраза"
         : "Голос Marin; вход $0.60, аудиовыход $12 за 1 млн токенов; озвучивается только слово";
     $("#greek-audio-note").hidden = !isGreek;
+    $("#sibling-spacing-row").hidden = !isGreek;
+    document.querySelectorAll(".greek-phrase-column").forEach((element) => {
+        element.hidden = !isGreek;
+    });
     $("#preview-template").value = isGreek ? "greek-vocabulary" : "classic";
+    if (state.cards.length) renderQueue();
     syncCardCostEstimate();
 }
 
@@ -285,9 +300,18 @@ function estimatedAudioCharacters() {
     const averageWordCharacters = words.length
         ? words.reduce((total, word) => total + word.length, 0) / words.length
         : cardCostAssumptions.defaultWordCharacters;
-    const greekContext = $("#language").value === "greek"
-        ? cardCostAssumptions.greekContextCharacters
-        : 0;
+    let greekContext = 0;
+    if ($("#language").value === "greek") {
+        const phraseLengths = state.cards.length
+            ? state.cards.map((card) => card.phrase?.length || cardCostAssumptions.greekContextCharacters)
+            : $("#words-input").value
+                .split(/\r?\n/)
+                .filter((line) => line.trim())
+                .map((line) => line.split(";")[2]?.trim().length || cardCostAssumptions.greekContextCharacters);
+        greekContext = phraseLengths.length
+            ? phraseLengths.reduce((total, length) => total + length, 0) / phraseLengths.length
+            : cardCostAssumptions.greekContextCharacters;
+    }
     return Math.round(averageWordCharacters + greekContext);
 }
 
@@ -304,11 +328,11 @@ function calculateAudioCost(audioCharacters, requestCount) {
     return {cost, inputTokens, outputTokens};
 }
 
-function calculateCardCost(pricing, usesOpenAIImages, audioCharacters, audioRequestCount) {
+function calculateCardCost(pricing, usesOpenAIImages, audioCharacters, audioRequestCount, textOutputTokens) {
     if (!pricing) return null;
     const text = (
         cardCostAssumptions.textInputTokens * pricing.input
-        + cardCostAssumptions.textOutputTokens * pricing.output
+        + textOutputTokens * pricing.output
     ) / 1_000_000;
     const image = usesOpenAIImages
         ? cardCostAssumptions.imageOutputCost
@@ -324,16 +348,21 @@ function syncCardCostEstimate() {
     const isGreek = $("#language").value === "greek";
     const audioCharacters = estimatedAudioCharacters();
     const audioRequestCount = isGreek ? 2 : 1;
+    const textOutputTokens = isGreek
+        ? cardCostAssumptions.greekTextOutputTokens
+        : cardCostAssumptions.textOutputTokens;
     const audioEstimate = calculateAudioCost(audioCharacters, audioRequestCount);
     const estimate = calculateCardCost(
         pricing,
         usesOpenAIImages,
         audioCharacters,
         audioRequestCount,
+        textOutputTokens,
     );
     $("#card-cost-title").textContent = isGreek
-        ? "Примерно за 1 заметку · до 3 карточек"
+        ? "Примерно за 1 заметку · до 4 карточек"
         : "Примерно за 1 новую карточку";
+    $("#card-cost-text-label").textContent = isGreek ? "Текст · 1 вызов" : "Текст · 2 вызова";
 
     if (!estimate) {
         $("#card-cost-total").textContent = "Нет полной оценки";
@@ -354,7 +383,7 @@ function syncCardCostEstimate() {
             ? `${pricing.name} · изображение OpenAI · GPT-4o mini TTS${isGreek ? " · 2 аудио" : ""}`
             : `${pricing.name} · без цены Replicate · GPT-4o mini TTS${isGreek ? " · 2 аудио" : ""}`;
     }
-    $("#card-cost-assumptions").textContent = `Оценка: 2 500 входных + 500 выходных/reasoning-токенов текста, 200 токенов image prompt, ≈ ${audioEstimate.inputTokens} входных + ${audioEstimate.outputTokens} аудиотокенов TTS${isGreek ? " для слова и фразы" : ""}. Без кэша.`;
+    $("#card-cost-assumptions").textContent = `Оценка: 2 500 входных + ${textOutputTokens} выходных/reasoning-токенов текста, 200 токенов image prompt, ≈ ${audioEstimate.inputTokens} входных + ${audioEstimate.outputTokens} аудиотокенов TTS${isGreek ? " для слова и фразы" : ""}. Без кэша.`;
 }
 
 async function startJob() {
@@ -428,6 +457,22 @@ function renderQueue() {
         contextCell.textContent = card.context || "—";
         contextCell.className = card.context ? "" : "muted";
 
+        const phraseCell = document.createElement("td");
+        phraseCell.className = "greek-phrase-column";
+        phraseCell.hidden = $("#language").value !== "greek";
+        const phrase = document.createElement("input");
+        phrase.type = "text";
+        phrase.className = "phrase-input";
+        phrase.placeholder = "Сгенерировать автоматически";
+        phrase.value = card.phrase || "";
+        phrase.disabled = Boolean(state.job);
+        phrase.setAttribute("aria-label", `Русская фраза для слова ${card.word}`);
+        phrase.addEventListener("input", () => {
+            card.phrase = phrase.value;
+            syncCardCostEstimate();
+        });
+        phraseCell.append(phrase);
+
         const statusCell = document.createElement("td");
         const badge = document.createElement("span");
         badge.className = `card-status card-status-${card.status}`;
@@ -447,7 +492,7 @@ function renderQueue() {
         preview.addEventListener("click", () => openPreview(card));
         actionCell.append(preview);
 
-        row.append(wordCell, contextCell, statusCell, actionCell);
+        row.append(wordCell, contextCell, phraseCell, statusCell, actionCell);
         body.append(row);
     }
 }
@@ -544,14 +589,15 @@ function setPreviewLayout(templateKey) {
     $("#preview-greek-back").hidden = classic;
 }
 
-function syncPreviewCardTypes(template, hasContext = true) {
+function syncPreviewCardTypes(template, hasContext = true, hasMultipleChoice = true) {
     const select = $("#preview-card-type");
     const previous = select.value;
     select.replaceChildren(...template.cardTypes.map((cardType) => {
         const option = document.createElement("option");
         option.value = cardType.id;
         option.textContent = cardType.name;
-        option.disabled = cardType.id === "context" && !hasContext;
+        option.disabled = (cardType.id === "context" && !hasContext)
+            || (cardType.id === "multiple-choice" && !hasMultipleChoice);
         return option;
     }));
     const reusable = [...select.options].some((option) => option.value === previous && !option.disabled);
@@ -564,6 +610,32 @@ function renderGreekCardType() {
     document.querySelectorAll("[data-greek-card]").forEach((section) => {
         section.hidden = section.dataset.greekCard !== selected;
     });
+    if (selected === "multiple-choice") resetMultipleChoicePreview();
+}
+
+function resetMultipleChoicePreview() {
+    const container = $("#preview-multiple-choice-options");
+    if (!container) return;
+    const choices = [...container.querySelectorAll("[data-preview-choice]")];
+    for (let index = choices.length - 1; index > 0; index -= 1) {
+        const randomIndex = Math.floor(Math.random() * (index + 1));
+        [choices[index], choices[randomIndex]] = [choices[randomIndex], choices[index]];
+    }
+    choices.forEach((choice) => {
+        choice.classList.remove("is-correct", "is-wrong");
+        choice.disabled = false;
+        container.append(choice);
+    });
+}
+
+function answerMultipleChoicePreview(choice) {
+    if (choice.disabled) return;
+    const container = $("#preview-multiple-choice-options");
+    const choices = [...container.querySelectorAll("[data-preview-choice]")];
+    const isCorrect = choice.dataset.correct === "true";
+    choice.classList.add(isCorrect ? "is-correct" : "is-wrong");
+    if (!isCorrect) container.querySelector('[data-correct="true"]').classList.add("is-correct");
+    choices.forEach((item) => { item.disabled = true; });
 }
 
 function setGreekAudio(groupSelector, source, showPlaceholder) {
@@ -608,10 +680,14 @@ function populateGreekPreview(data, {
         data.has_context
         || (data.context_greek && data.context_cloze && data.context_answer)
     );
+    const hasMultipleChoice = Boolean(
+        data.has_multiple_choice
+        || (data.distractor1 && data.distractor2 && data.distractor3)
+    );
     document.querySelectorAll("[data-greek-context]").forEach((section) => {
         section.hidden = !hasContext;
     });
-    syncPreviewCardTypes(previewTemplates["greek-vocabulary"], hasContext);
+    syncPreviewCardTypes(previewTemplates["greek-vocabulary"], hasContext, hasMultipleChoice);
     renderGreekCardType();
     setGreekAudio("[data-greek-word-audio-wrap]", audioSource, showAudioPlaceholders);
     setGreekAudio("[data-greek-context-audio-wrap]", contextAudioSource, showAudioPlaceholders && hasContext);
@@ -687,9 +763,7 @@ function openPreview(card) {
             imageSource,
             audioSource,
             contextAudioSource,
-            note: card.has_context
-                ? "Greek Vocabulary · три независимые карточки"
-                : "Greek Vocabulary · контекст недоступен, созданы две карточки",
+            note: `Greek Vocabulary · ${2 + Number(Boolean(card.has_context)) + Number(Boolean(card.has_multiple_choice))} независимые карточки`,
         });
         return;
     }
@@ -724,7 +798,7 @@ async function restoreJob() {
 
 $("#file-input").addEventListener("change", (event) => {
     const file = event.target.files[0];
-    $("#file-label").textContent = file ? `${file.name} · ${(file.size / 1024).toFixed(0)} КБ` : "До 10 МБ · колонки word и context";
+    $("#file-label").textContent = file ? `${file.name} · ${(file.size / 1024).toFixed(0)} КБ` : "До 10 МБ · колонки word, context и phrase";
 });
 $("#image-mode").addEventListener("change", (event) => {
     $("#replicate-settings").hidden = event.target.value !== "replicate";
@@ -736,9 +810,9 @@ $("#custom-text-model").addEventListener("input", syncOpenAIPricing);
 $("#words-input").addEventListener("input", syncCardCostEstimate);
 $("#example-button").addEventListener("click", () => {
     $("#file-input").value = "";
-    $("#file-label").textContent = "До 10 МБ · колонки word и context";
+    $("#file-label").textContent = "До 10 МБ · колонки word, context и phrase";
     $("#words-input").value = $("#language").value === "greek"
-        ? "дверь;дом\nпокупка;магазин\nвстречаться;друзья"
+        ? "дверь;;Открой дверь, пожалуйста.\nсыр;;Я хочу немного сыра.\nвстречаться;друзья"
         : "purchasing power;economics\nconsciousness;philosophy\nfree will;decision making";
     syncCardCostEstimate();
 });
@@ -748,6 +822,9 @@ $("#cancel-button").addEventListener("click", cancelJob);
 $("#template-preview-button").addEventListener("click", openTemplatePreview);
 $("#preview-template").addEventListener("change", openTemplatePreview);
 $("#preview-card-type").addEventListener("change", renderGreekCardType);
+document.querySelectorAll("[data-preview-choice]").forEach((choice) => {
+    choice.addEventListener("click", () => answerMultipleChoicePreview(choice));
+});
 document.querySelectorAll("[data-preview-side]").forEach((button) => {
     button.addEventListener("click", () => setPreviewSide(button.dataset.previewSide));
 });

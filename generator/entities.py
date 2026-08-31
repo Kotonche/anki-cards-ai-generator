@@ -1,15 +1,20 @@
 import json
 import re
+import hashlib
 from dataclasses import dataclass, asdict
+
+
+CURRENT_GREEK_VOCABULARY_SCHEMA = "greek_vocabulary_v2"
 
 
 @dataclass(frozen=True)
 class WordWithContext:
     word: str
     context: str
+    phrase: str = ""
 
     def __post_init__(self):
-        if self.word is None or self.context is None:
+        if self.word is None or self.context is None or self.phrase is None:
             raise ValueError("Attributes cannot be None")
         if self.word == "":
             raise ValueError("Word cannot be empty")
@@ -58,8 +63,14 @@ class GreekVocabularyDataV1:
     context_cloze_transcription: str
     context_answer: str
     context_audio_path: str = ""
-    schema: str = "greek_vocabulary_v1"
-    version: int = 1
+    distractor1: str = ""
+    distractor1_transcription: str = ""
+    distractor2: str = ""
+    distractor2_transcription: str = ""
+    distractor3: str = ""
+    distractor3_transcription: str = ""
+    schema: str = CURRENT_GREEK_VOCABULARY_SCHEMA
+    version: int = 2
 
     def __post_init__(self):
         required = {
@@ -87,9 +98,24 @@ class GreekVocabularyDataV1:
         if any(context_values) and not all(context_values):
             raise ValueError("Greek context fields must either all be filled or all be empty")
 
+        distractor_values = [
+            self.distractor1,
+            self.distractor1_transcription,
+            self.distractor2,
+            self.distractor2_transcription,
+            self.distractor3,
+            self.distractor3_transcription,
+        ]
+        if any(distractor_values) and not all(distractor_values):
+            raise ValueError("Greek distractor fields must either all be filled or all be empty")
+
     @property
     def has_context(self) -> bool:
         return bool(self.context_greek and self.context_cloze and self.context_answer)
+
+    @property
+    def has_multiple_choice(self) -> bool:
+        return bool(self.distractor1 and self.distractor2 and self.distractor3)
 
     @property
     def card_text(self) -> str:
@@ -111,7 +137,7 @@ def serialize_to_json(data):
 
 
 def card_data_from_dict(data: dict) -> CardData:
-    if data.get("schema") == "greek_vocabulary_v1":
+    if data.get("schema") in {"greek_vocabulary_v1", CURRENT_GREEK_VOCABULARY_SCHEMA}:
         return GreekVocabularyDataV1(**data)
     return CardRawDataV1(**data)
 
@@ -129,6 +155,9 @@ def word_to_filename(word: WordWithContext) -> str:
     word_cleaned = re.sub(r"\s+", "_", word_cleaned)
     # Remove all non-alphanumeric characters (except underscores)
     word_cleaned = re.sub(r"[^\w\s]", "", word_cleaned)
+    if word.phrase.strip():
+        phrase_hash = hashlib.sha256(word.phrase.strip().encode("utf-8")).hexdigest()[:10]
+        word_cleaned = f"{word_cleaned}_{phrase_hash}"
     return word_cleaned
 
 

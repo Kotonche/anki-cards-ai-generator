@@ -13,8 +13,9 @@ def _clean_rows(rows) -> list[dict[str, str]]:
     for row in rows:
         word = str(row.get("word", "")).strip()
         context = str(row.get("context", "")).strip()
+        phrase = str(row.get("phrase", "")).strip()
         if word:
-            cards.append({"word": word, "context": context})
+            cards.append({"word": word, "context": context, "phrase": phrase})
 
     if not cards:
         raise InputError("Не найдено ни одного непустого слова")
@@ -40,6 +41,7 @@ def parse_text(content: str) -> list[dict[str, str]]:
             {
                 "word": row.get(normalized["word"], ""),
                 "context": row.get(normalized.get("context", ""), ""),
+                "phrase": row.get(normalized.get("phrase", ""), ""),
             }
             for row in reader
         )
@@ -50,8 +52,14 @@ def parse_text(content: str) -> list[dict[str, str]]:
         line = line.strip()
         if not line:
             continue
-        word, separator, context = line.partition(";")
-        rows.append({"word": word, "context": context if separator else ""})
+        values = next(csv.reader([line], delimiter=";"))
+        rows.append(
+            {
+                "word": values[0] if values else "",
+                "context": values[1] if len(values) > 1 else "",
+                "phrase": values[2] if len(values) > 2 else "",
+            }
+        )
     return _clean_rows(rows)
 
 
@@ -92,7 +100,9 @@ def parse_uploaded_file(filename: str, encoded_content: str) -> list[dict[str, s
             raise InputError("В Excel нужна колонка word")
         if "context" not in dataframe.columns:
             dataframe["context"] = ""
+        if "phrase" not in dataframe.columns:
+            dataframe["phrase"] = ""
         dataframe = dataframe.fillna("")
-        return _clean_rows(dataframe[["word", "context"]].to_dict("records"))
+        return _clean_rows(dataframe[["word", "context", "phrase"]].to_dict("records"))
 
     raise InputError("Поддерживаются CSV, TXT, XLS и XLSX")

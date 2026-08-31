@@ -5,6 +5,15 @@ import requests
 from generator.config import Config
 
 
+SIBLING_SPACING_PRESET_PREFIX = "Anki Generator · spaced siblings"
+
+
+def _result_or_raise(response: dict, action: str):
+    if response.get("error"):
+        raise RuntimeError(f"AnkiConnect {action}: {response['error']}")
+    return response.get("result")
+
+
 def check_deck_exists(deck_name: str) -> bool:
     # Check existing decks
     result = invoke('deckNames')
@@ -25,6 +34,61 @@ def create_deck(deck_name):
         error_msg = result.get('error')
         logging.error(f"Failed to create deck '{deck_name}': {error_msg}")
         raise Exception(f"An error occurred: {error_msg}")
+
+
+def ensure_new_sibling_spacing(deck_name: str) -> bool:
+    """Use template order and show at most one new sibling from a note per day."""
+    config = _result_or_raise(
+        invoke("getDeckConfig", {"deck": deck_name}),
+        "getDeckConfig",
+    )
+    if not isinstance(config, dict) or not isinstance(config.get("new"), dict):
+        raise RuntimeError("AnkiConnect getDeckConfig: unexpected deck configuration")
+
+    desired = config["new"].get("bury") is True and config.get("newSortOrder", 0) == 0
+    if desired:
+        return False
+
+    if not str(config.get("name", "")).startswith(SIBLING_SPACING_PRESET_PREFIX):
+        source_id = config.get("id")
+        if source_id is None:
+            raise RuntimeError("AnkiConnect getDeckConfig: configuration ID is missing")
+        deck_label = deck_name.replace("::", " · ")
+        clone_id = _result_or_raise(
+            invoke(
+                "cloneDeckConfigId",
+                {
+                    "name": f"{SIBLING_SPACING_PRESET_PREFIX} · {deck_label}",
+                    "cloneFrom": source_id,
+                },
+            ),
+            "cloneDeckConfigId",
+        )
+        if clone_id is False:
+            raise RuntimeError("AnkiConnect cloneDeckConfigId: failed to clone deck preset")
+        assigned = _result_or_raise(
+            invoke("setDeckConfigId", {"decks": [deck_name], "configId": clone_id}),
+            "setDeckConfigId",
+        )
+        if assigned is not True:
+            raise RuntimeError("AnkiConnect setDeckConfigId: failed to assign deck preset")
+        config = _result_or_raise(
+            invoke("getDeckConfig", {"deck": deck_name}),
+            "getDeckConfig",
+        )
+        if not isinstance(config, dict) or not isinstance(config.get("new"), dict):
+            raise RuntimeError("AnkiConnect getDeckConfig: unexpected cloned configuration")
+
+    config["new"]["bury"] = True
+    config["newSortOrder"] = 0
+    saved = _result_or_raise(
+        invoke("saveDeckConfig", {"config": config}),
+        "saveDeckConfig",
+    )
+    if saved is not True:
+        raise RuntimeError("AnkiConnect saveDeckConfig: failed to save deck preset")
+    logging.info("New sibling spacing enabled for deck [%s]", deck_name)
+    return True
 
 
 def check_card_exists(deck_name, word):

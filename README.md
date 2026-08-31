@@ -64,15 +64,16 @@ The first web version runs one generation job at a time. Closing the browser doe
 
 #### Greek Vocabulary template
 
-When `Ελληνικά` is selected, enter words in Russian. The generator translates each entry into modern Greek and creates one versioned `Greek Vocabulary v1` note with up to three independently scheduled cards:
+When `Ελληνικά` is selected, enter words in Russian. You can optionally provide both a meaning context and the exact Russian example phrase you want to study. The model translates a supplied phrase into natural modern Greek; when the phrase is empty, it creates an A1/A2 example automatically. The generator creates one versioned `Greek Vocabulary` note with up to four independently scheduled cards:
 
-- `ACTIVE RECALL · Production`: Russian meaning and image → Greek word with article.
-- `RECOGNITION · Comprehension`: Greek word with article → Russian meaning.
-- `CONTEXT RECALL · Usage`: Greek sentence with a blank → typed Greek answer.
+- `01 · Recognition Boost · Multiple Choice`: Russian meaning and image → one correct Greek word among four shuffled options.
+- `02 · Recognition · Comprehension`: Greek word with article → Russian meaning.
+- `03 · Context Recall · Usage`: Greek sentence with a blank → typed Greek answer.
+- `04 · Active Recall · Production`: Russian meaning and image → Greek word with article.
 
-The note also stores a Russian phonetic transcription, a complete A1/A2 example, word audio with the article, and separate phrase audio. If the complete context block cannot be generated, the first two cards are still imported and the context card is omitted. Notes receive the shared tags `greek`, `greek-vocabulary`, `ai-generated`, `level::a1`/`level::a2`, the Greek word, and a Russian source tag.
+The note also stores a Russian phonetic transcription, a complete A1/A2 example, word audio with the article, separate phrase audio, and three same-level distractors with transcriptions. If the complete context block cannot be generated, the context card is omitted. If the distractor block is incomplete or invalid, the multiple-choice card is omitted. Notes receive the shared tags `greek`, `greek-vocabulary`, `ai-generated`, `level::a1`/`level::a2`, the Greek word, and a Russian source tag.
 
-The importer reuses an existing compatible versioned note type but never overwrites an incompatible one; it creates the next version instead. Audio fields use Anki's normal replay buttons. Disable **Automatically play audio** in the deck options if you do not want Anki to play them automatically. Card 3 uses Anki's standard typed-answer comparison; [AnkiWeb does not display typed-answer boxes](https://docs.ankiweb.net/templates/fields.html#checking-your-answer), while supported desktop and mobile clients show the native comparison.
+The importer reuses an existing compatible versioned note type but never overwrites an incompatible one; it creates the next version instead. By default, the web UI enables Anki's **Bury new siblings** option in a deck-specific cloned preset and uses template-order sorting. This introduces the four new sibling cards in `01 → 02 → 03 → 04` order on separate days without coupling their later ratings or intervals. Audio fields use Anki's normal replay buttons. Disable **Automatically play audio** in the deck options if you do not want Anki to play them automatically. Card 3 uses Anki's standard typed-answer comparison; [AnkiWeb does not display typed-answer boxes](https://docs.ankiweb.net/templates/fields.html#checking-your-answer), while supported desktop and mobile clients show the native comparison.
 
 ### Command line
 
@@ -128,15 +129,13 @@ You can adjust and use the [run_generator.cmd](run_generator.cmd) for Windows or
 ### Input
 This tool reads a file as input.
 It can be a CSV file with semicolon as separator (you can use commas in sentences and context), or an Excel file.
-Header "word;context" is expected.
+The `word` column is required. `context` and `phrase` are optional. For Greek vocabulary, `phrase` is the desired Russian example sentence; leave it empty to generate an example automatically.
 Example:
 ```csv
-word;context
-tax fraud;
-purchasing power parity;economy
-affect;
-consciousness;the state of human being
-free will;
+word;context;phrase
+дверь;дом;Открой дверь, пожалуйста.
+сыр;;Я хочу немного сыра.
+встречаться;друзья;
 ```
 
 ### Output

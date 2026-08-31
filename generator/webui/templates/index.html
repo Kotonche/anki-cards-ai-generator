@@ -55,7 +55,7 @@
                     <input id="file-input" type="file" accept=".csv,.txt,.xls,.xlsx">
                     <span class="drop-icon">↥</span>
                     <strong>Выберите CSV, TXT или Excel</strong>
-                    <small id="file-label">До 10 МБ · колонки word и context</small>
+                    <small id="file-label">До 10 МБ · колонки word, context и phrase</small>
                 </label>
 
                 <div class="or-divider"><span>или вставьте вручную</span></div>
@@ -84,7 +84,7 @@
                         <select id="language">
                             <option value="english">English</option>
                             <option value="german">Deutsch</option>
-                            <option value="greek">Ελληνικά</option>
+                            <option value="greek" selected>Ελληνικά</option>
                         </select>
                     </label>
                     <label class="field">
@@ -168,7 +168,7 @@
                                     <small id="card-cost-summary">GPT-5.6 Luna · изображение OpenAI · GPT-4o mini TTS</small>
                                 </div>
                                 <div class="cost-breakdown" aria-label="Состав оценки">
-                                    <div><span>Текст · 2 вызова</span><strong id="card-cost-text">≈ $0.0011</strong></div>
+                                    <div><span id="card-cost-text-label">Текст · 2 вызова</span><strong id="card-cost-text">≈ $0.0011</strong></div>
                                     <div><span>Изображение</span><strong id="card-cost-image">≈ $0.0070</strong></div>
                                     <div><span>Аудио</span><strong id="card-cost-audio">≈ $0.00035</strong></div>
                                 </div>
@@ -256,6 +256,10 @@
                         <input id="import-after" type="checkbox" checked>
                         <span><strong>Импортировать после генерации</strong><small>Иначе файлы останутся в рабочей папке</small></span>
                     </label>
+                    <label id="sibling-spacing-row" class="toggle-row">
+                        <input id="space-new-siblings" type="checkbox" checked>
+                        <span><strong>Разносить новые sibling-карточки</strong><small>Одна новая карточка этой Note в день; интервалы и ratings остаются независимыми</small></span>
+                    </label>
                 </div>
                 <p id="greek-audio-note" class="setup-note" hidden>В шаблоне нет автозапуска. Если Anki всё равно проигрывает звук автоматически, отключите «Automatically play audio» в настройках выбранной колоды.</p>
             </article>
@@ -301,7 +305,13 @@
             <div class="table-wrap">
                 <table>
                     <thead>
-                        <tr><th>Слово</th><th>Контекст</th><th>Статус</th><th><span class="visually-hidden">Действия</span></th></tr>
+                        <tr>
+                            <th>Слово</th>
+                            <th>Контекст</th>
+                            <th class="greek-phrase-column">Русская фраза <span class="muted">· необязательно</span></th>
+                            <th>Статус</th>
+                            <th><span class="visually-hidden">Действия</span></th>
+                        </tr>
                     </thead>
                     <tbody id="cards-body"></tbody>
                 </table>
@@ -324,7 +334,7 @@
                     <span>Шаблон</span>
                     <select id="preview-template" aria-label="Шаблон карточки">
                         <option value="classic">Классический</option>
-                        <option value="greek-vocabulary">Greek Vocabulary · 3 карточки</option>
+                        <option value="greek-vocabulary">Greek Vocabulary · 4 карточки</option>
                     </select>
                 </label>
                 <label id="preview-card-type-field" class="template-picker card-type-picker" hidden>
@@ -364,11 +374,13 @@
 
                         <div id="preview-greek-front" class="greek-preview" hidden>
                             <section data-greek-card="production">
+                                <span class="greek-preview-skill-badge">ACTIVE RECALL · PRODUCTION</span>
                                 <div class="greek-preview-image" data-greek-image-wrap><img data-greek-image alt="Пример изображения для греческой карточки"></div>
                                 <strong class="greek-preview-translation" data-greek-field="translation"></strong>
                                 <p class="greek-preview-prompt">Как по-гречески?</p>
                             </section>
                             <section data-greek-card="recognition" hidden>
+                                <span class="greek-preview-skill-badge">RECOGNITION · COMPREHENSION</span>
                                 <p class="greek-preview-transcription" data-greek-field="transcription"></p>
                                 <strong class="greek-preview-word" data-greek-field="full_word"></strong>
                                 <div class="greek-preview-audio" data-greek-word-audio-wrap>
@@ -378,6 +390,7 @@
                                 <p class="greek-preview-prompt">Что это значит?</p>
                             </section>
                             <section data-greek-card="context" hidden>
+                                <span class="greek-preview-skill-badge">CONTEXT RECALL · USAGE</span>
                                 <p class="greek-preview-transcription" data-greek-field="context_cloze_transcription"></p>
                                 <p class="greek-preview-sentence" data-greek-field="context_cloze"></p>
                                 <strong class="greek-preview-context-hint" data-greek-field="translation"></strong>
@@ -385,6 +398,30 @@
                                     <span>Введите пропущенное слово</span>
                                     <input type="text" placeholder="Ваш ответ…" readonly aria-label="Поле ответа в Anki">
                                 </label>
+                            </section>
+                            <section data-greek-card="multiple-choice" hidden>
+                                <span class="greek-preview-skill-badge">RECOGNITION BOOST · MULTIPLE CHOICE</span>
+                                <div class="greek-preview-image greek-preview-mc-image" data-greek-image-wrap><img data-greek-image alt="Пример изображения для Multiple Choice"></div>
+                                <strong class="greek-preview-translation greek-preview-mc-translation" data-greek-field="translation"></strong>
+                                <p class="greek-preview-prompt">Как это по-гречески?</p>
+                                <div id="preview-multiple-choice-options" class="greek-preview-choices">
+                                    <button class="greek-preview-choice" type="button" data-preview-choice data-correct="true">
+                                        <span data-greek-field="transcription"></span>
+                                        <strong data-greek-field="full_word"></strong>
+                                    </button>
+                                    <button class="greek-preview-choice" type="button" data-preview-choice data-correct="false">
+                                        <span data-greek-field="distractor1_transcription"></span>
+                                        <strong data-greek-field="distractor1"></strong>
+                                    </button>
+                                    <button class="greek-preview-choice" type="button" data-preview-choice data-correct="false">
+                                        <span data-greek-field="distractor2_transcription"></span>
+                                        <strong data-greek-field="distractor2"></strong>
+                                    </button>
+                                    <button class="greek-preview-choice" type="button" data-preview-choice data-correct="false">
+                                        <span data-greek-field="distractor3_transcription"></span>
+                                        <strong data-greek-field="distractor3"></strong>
+                                    </button>
+                                </div>
                             </section>
                         </div>
                     </section>
@@ -405,6 +442,7 @@
 
                         <div id="preview-greek-back" class="greek-preview" hidden>
                             <section data-greek-card="production">
+                                <span class="greek-preview-skill-badge">ACTIVE RECALL · PRODUCTION</span>
                                 <p class="greek-preview-transcription" data-greek-field="transcription"></p>
                                 <strong class="greek-preview-word" data-greek-field="full_word"></strong>
                                 <div class="greek-preview-audio" data-greek-word-audio-wrap>
@@ -422,6 +460,7 @@
                                 </div>
                             </section>
                             <section data-greek-card="recognition" hidden>
+                                <span class="greek-preview-skill-badge">RECOGNITION · COMPREHENSION</span>
                                 <strong class="greek-preview-translation" data-greek-field="translation"></strong>
                                 <div class="greek-preview-image" data-greek-image-wrap><img data-greek-image alt="Пример изображения для греческой карточки"></div>
                                 <div class="greek-preview-context" data-greek-context>
@@ -435,6 +474,7 @@
                                 </div>
                             </section>
                             <section data-greek-card="context" hidden>
+                                <span class="greek-preview-skill-badge">CONTEXT RECALL · USAGE</span>
                                 <p class="answer-caption">Правильный ответ</p>
                                 <p class="greek-preview-transcription" data-greek-field="transcription"></p>
                                 <strong class="greek-preview-word" data-greek-field="context_answer"></strong>
@@ -450,6 +490,20 @@
                                         <span class="audio-placeholder" data-greek-context-audio-placeholder>▶ Фраза</span>
                                         <audio controls data-greek-context-audio hidden></audio>
                                     </div>
+                                </div>
+                            </section>
+                            <section data-greek-card="multiple-choice" hidden>
+                                <span class="greek-preview-skill-badge">RECOGNITION BOOST · MULTIPLE CHOICE</span>
+                                <p class="greek-preview-transcription" data-greek-field="transcription"></p>
+                                <strong class="greek-preview-word" data-greek-field="full_word"></strong>
+                                <div class="greek-preview-audio" data-greek-word-audio-wrap>
+                                    <span class="audio-placeholder" data-greek-word-audio-placeholder>▶ Слово</span>
+                                    <audio controls data-greek-word-audio hidden></audio>
+                                </div>
+                                <div class="greek-preview-context" data-greek-context>
+                                    <p class="greek-preview-transcription" data-greek-field="context_transcription"></p>
+                                    <p class="greek-preview-sentence" data-greek-field="context_greek"></p>
+                                    <p class="greek-preview-russian" data-greek-field="context_russian"></p>
                                 </div>
                             </section>
                         </div>

@@ -106,17 +106,42 @@ def _normalized_greek_context(data: dict) -> dict[str, str]:
     return context
 
 
+def _normalized_greek_distractors(data: dict, article: str, word: str) -> dict[str, str]:
+    names = [
+        "distractor1",
+        "distractor1_transcription",
+        "distractor2",
+        "distractor2_transcription",
+        "distractor3",
+        "distractor3_transcription",
+    ]
+    distractors = {name: _clean_generated_value(data, name) for name in names}
+    if not all(distractors.values()):
+        logging.warning("Greek distractors are incomplete; Multiple Choice card will not be created")
+        return {name: "" for name in names}
+
+    normalize = lambda value: " ".join(value.casefold().split())
+    correct_answer = normalize(" ".join(part for part in (article, word) if part))
+    wrong_answers = [normalize(distractors[f"distractor{index}"]) for index in range(1, 4)]
+    if len(set(wrong_answers)) != 3 or correct_answer in wrong_answers:
+        logging.warning("Greek distractors are duplicated or contain the correct answer; Multiple Choice card will not be created")
+        return {name: "" for name in names}
+    return distractors
+
+
 def create_greek_vocabulary_for_word(word_with_context: WordWithContext) -> GreekVocabularyDataV1:
     generated = greek_vocabulary.chat_generate_vocabulary(word_with_context)
     context = _normalized_greek_context(generated)
+
+    article = _clean_generated_value(generated, "article")
+    word = _clean_generated_value(generated, "word")
+    distractors = _normalized_greek_distractors(generated, article, word)
 
     image_prompt = _clean_generated_value(generated, "image_prompt")
     image_source = get_image_url_depending_on_image_generation_mode(image_prompt)
     image_path = generate_image_path(Config.PROCESSING_DIRECTORY_PATH, word_with_context)
     download_and_save_image(image_source, image_path)
 
-    article = _clean_generated_value(generated, "article")
-    word = _clean_generated_value(generated, "word")
     spoken_word = " ".join(part for part in (article, word) if part)
     audio_path = generate_audio_path(Config.PROCESSING_DIRECTORY_PATH, word_with_context)
     openai_audio.chat_generate_and_save_audio(spoken_word, audio_path)
@@ -147,6 +172,7 @@ def create_greek_vocabulary_for_word(word_with_context: WordWithContext) -> Gree
         audio_path=audio_path,
         context_audio_path=context_audio_path,
         **context,
+        **distractors,
     )
     card_data_path = generate_card_data_path(Config.PROCESSING_DIRECTORY_PATH, word_with_context)
     save_text(serialize_to_json(card_raw), card_data_path)

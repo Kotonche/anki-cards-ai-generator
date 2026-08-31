@@ -37,6 +37,7 @@ class JobManager:
                     "id": str(index + 1),
                     "word": word,
                     "context": str(card.get("context", "")).strip(),
+                    "phrase": str(card.get("phrase", "")).strip(),
                     "status": "queued",
                     "message": "Ожидает запуска",
                     "card_text": None,

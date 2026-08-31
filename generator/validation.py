@@ -4,8 +4,14 @@ import os
 import requests
 
 from generator.anki import anki_operations
-from generator.config import Config
-from generator.entities import CardData, GreekVocabularyDataV1, WordWithContext, source_word_for_card
+from generator.config import Config, GREEK
+from generator.entities import (
+    CURRENT_GREEK_VOCABULARY_SCHEMA,
+    CardData,
+    GreekVocabularyDataV1,
+    WordWithContext,
+    source_word_for_card,
+)
 from generator.input import file_operations
 from generator.input.confirm import confirm_action
 from generator.input.file_operations import generate_card_data_path
@@ -80,6 +86,13 @@ def filter_words_are_present_in_deck(deck_name, words: list[WordWithContext]) ->
 def discard_invalid_cards(processing_directory: str, existing_cards: list[CardData]) -> list[CardData]:
     valid_cards: list[CardData] = []
     for card in existing_cards:
+        if (
+            Config.LANGUAGE == GREEK
+            and isinstance(card, GreekVocabularyDataV1)
+            and card.schema != CURRENT_GREEK_VOCABULARY_SCHEMA
+        ):
+            logging.info("Ignoring outdated Greek vocabulary data so it can be regenerated")
+            continue
         required_files: list[str] = [card.audio_path, card.image_path]
         if isinstance(card, GreekVocabularyDataV1) and card.context_audio_path:
             required_files.append(card.context_audio_path)

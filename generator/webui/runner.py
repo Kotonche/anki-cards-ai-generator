@@ -5,7 +5,11 @@ from pathlib import Path
 
 
 def _load_cached_card(processing_directory, word_with_context):
-    from generator.entities import GreekVocabularyDataV1, card_data_from_dict
+    from generator.entities import (
+        CURRENT_GREEK_VOCABULARY_SCHEMA,
+        GreekVocabularyDataV1,
+        card_data_from_dict,
+    )
     from generator.config import Config, GREEK
     from generator.input.file_operations import (
         all_files_exist_and_are_not_empty,
@@ -25,6 +29,9 @@ def _load_cached_card(processing_directory, word_with_context):
     is_greek_card = isinstance(card, GreekVocabularyDataV1)
     if (Config.LANGUAGE == GREEK) != is_greek_card:
         logging.info("Ignoring cached card with a schema for another language")
+        return None
+    if is_greek_card and card.schema != CURRENT_GREEK_VOCABULARY_SCHEMA:
+        logging.info("Ignoring an outdated Greek vocabulary cache so it can be regenerated")
         return None
 
     required_files = [card.image_path, card.audio_path]
@@ -76,6 +83,8 @@ def _prepare_anki(settings: dict) -> None:
         from generator.anki import greek_vocabulary_model
 
         Config.CARD_MODEL = greek_vocabulary_model.ensure_model()
+        if settings.get("space_new_siblings", True):
+            anki_operations.ensure_new_sibling_spacing(Config.DECK_NAME)
 
 
 def _handle_duplicate(settings: dict, word: str) -> str | None:
@@ -138,8 +147,15 @@ def _card_changes(card, status: str, message: str) -> dict:
             "context_cloze_transcription": card.context_cloze_transcription,
             "context_answer": card.context_answer,
             "context_audio_path": card.context_audio_path,
+            "distractor1": card.distractor1,
+            "distractor1_transcription": card.distractor1_transcription,
+            "distractor2": card.distractor2,
+            "distractor2_transcription": card.distractor2_transcription,
+            "distractor3": card.distractor3,
+            "distractor3_transcription": card.distractor3_transcription,
             "has_context": card.has_context,
             "has_context_audio": bool(card.context_audio_path),
+            "has_multiple_choice": card.has_multiple_choice,
         })
     return changes
 
@@ -188,7 +204,11 @@ def run_generation_job(manager, job_id: str) -> None:
 
             card_id = card_record["id"]
             word = card_record["word"]
-            word_with_context = WordWithContext(word, card_record["context"])
+            word_with_context = WordWithContext(
+                word,
+                card_record["context"],
+                card_record.get("phrase", ""),
+            )
             manager.update_card(job_id, card_id, status="generating", message="Подготовка карточки")
             manager.set_job(job_id, message=f"Обработка: {word}")
             generated_this_card = False

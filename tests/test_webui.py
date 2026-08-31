@@ -11,7 +11,7 @@ from generator.api_calls import openai_image, openai_image_prompt, openai_respon
 from generator.api_costs import record_audio_speech
 from generator.api_calls.text_prompt_by_language import prompt_by_language
 from generator.config import A1, A2, C1, Config, GREEK
-from generator.entities import CardRawDataV1, WordWithContext, serialize_to_json
+from generator.entities import CardRawDataV1, GreekVocabularyDataV1, WordWithContext, serialize_to_json
 from generator.input.file_operations import download_and_save_image
 from generator.webui.input_parser import InputError, parse_text, parse_uploaded_file
 from generator.webui.jobs import JobError, JobManager
@@ -26,23 +26,34 @@ class InputParserTests(unittest.TestCase):
         self.assertEqual(
             cards,
             [
-                {"word": "free will", "context": "philosophy"},
-                {"word": "hello", "context": "greeting"},
+                {"word": "free will", "context": "philosophy", "phrase": ""},
+                {"word": "hello", "context": "greeting", "phrase": ""},
             ],
         )
 
     def test_parses_plain_lines_with_optional_context(self):
         cards = parse_text("consciousness\npurchasing power;economics")
 
-        self.assertEqual(cards[0], {"word": "consciousness", "context": ""})
-        self.assertEqual(cards[1], {"word": "purchasing power", "context": "economics"})
+        self.assertEqual(cards[0], {"word": "consciousness", "context": "", "phrase": ""})
+        self.assertEqual(cards[1], {"word": "purchasing power", "context": "economics", "phrase": ""})
+
+    def test_parses_optional_russian_phrase(self):
+        cards = parse_text(
+            'word;context;phrase\n'
+            'дверь;дом;Открой дверь, пожалуйста.\n'
+            'сыр;;"Я хочу сыра; и хлеба."'
+        )
+
+        self.assertEqual(cards[0]["phrase"], "Открой дверь, пожалуйста.")
+        self.assertEqual(cards[1]["context"], "")
+        self.assertEqual(cards[1]["phrase"], "Я хочу сыра; и хлеба.")
 
     def test_parses_base64_uploaded_csv(self):
         encoded = base64.b64encode("word;context\nHaus;building".encode()).decode()
 
         cards = parse_uploaded_file("german.csv", encoded)
 
-        self.assertEqual(cards, [{"word": "Haus", "context": "building"}])
+        self.assertEqual(cards, [{"word": "Haus", "context": "building", "phrase": ""}])
 
     def test_rejects_empty_input(self):
         with self.assertRaises(InputError):
@@ -98,6 +109,14 @@ class JobManagerTests(unittest.TestCase):
         self.assertEqual(job["cost"]["generated_items"], 0)
         self.assertTrue(job["cost"]["complete"])
 
+    def test_job_preserves_optional_phrase(self):
+        job = self.manager.create(
+            [{"word": "дверь", "context": "дом", "phrase": "Открой дверь."}],
+            {"processing_directory": "/tmp/cards"},
+        )
+
+        self.assertEqual(job["cards"][0]["phrase"], "Открой дверь.")
+
 
 class BatchCostIntegrationTests(unittest.TestCase):
     @staticmethod
@@ -115,14 +134,17 @@ class BatchCostIntegrationTests(unittest.TestCase):
         manager = JobManager()
         with tempfile.TemporaryDirectory() as processing_directory:
             job = manager.create(
-                [{"word": "hello"}],
+                [{"word": "hello", "phrase": "Say hello."}],
                 {
                     "processing_directory": processing_directory,
                     "import_after_generation": False,
                 },
             )
 
-            def generated_card(_word):
+            received_words = []
+
+            def generated_card(word):
+                received_words.append(word)
                 record_audio_speech("x" * 10, "tts-1-hd")
                 return self._classic_card()
 
@@ -135,6 +157,7 @@ class BatchCostIntegrationTests(unittest.TestCase):
 
         snapshot = manager.snapshot(job["id"])
         self.assertEqual(snapshot["status"], "completed")
+        self.assertEqual(received_words[0].phrase, "Say hello.")
         self.assertEqual(snapshot["cost"]["generated_items"], 1)
         self.assertAlmostEqual(snapshot["cost"]["total_usd"], 0.0003)
         self.assertAlmostEqual(snapshot["cost"]["average_usd"], 0.0003)
@@ -164,6 +187,48 @@ class BatchCostIntegrationTests(unittest.TestCase):
                 cached = runner._load_cached_card(
                     processing_directory,
                     WordWithContext("hello", ""),
+                )
+        finally:
+            Config.LANGUAGE = previous_language
+
+        self.assertIsNone(cached)
+
+    def test_greek_job_regenerates_vocabulary_v1_cache(self):
+        previous_language = Config.LANGUAGE
+        Config.LANGUAGE = GREEK
+        try:
+            with tempfile.TemporaryDirectory() as processing_directory:
+                image_path = Path(processing_directory) / "door.png"
+                audio_path = Path(processing_directory) / "door.mp3"
+                image_path.write_bytes(b"image")
+                audio_path.write_bytes(b"audio")
+                legacy = GreekVocabularyDataV1(
+                    source_word="дверь",
+                    word="πόρτα",
+                    article="η",
+                    transcription="и пОрта",
+                    translation="дверь",
+                    image_prompt="A door",
+                    image_url="openai:gpt-image-2",
+                    image_path=str(image_path),
+                    audio_path=str(audio_path),
+                    context_greek="",
+                    context_transcription="",
+                    context_russian="",
+                    context_cloze="",
+                    context_cloze_transcription="",
+                    context_answer="",
+                    schema="greek_vocabulary_v1",
+                    version=1,
+                )
+                (Path(processing_directory) / "дверь.json").write_text(
+                    serialize_to_json(legacy),
+                    encoding="utf-8",
+                )
+
+                cached = runner._load_cached_card(
+                    processing_directory,
+                    WordWithContext("дверь", ""),
                 )
         finally:
             Config.LANGUAGE = previous_language
@@ -209,10 +274,16 @@ class GreekLanguageTests(unittest.TestCase):
         self.assertIn('value="greek"', html)
         self.assertIn('value="greek-vocabulary"', html)
         self.assertIn('id="preview-card-type"', html)
-        self.assertIn("ACTIVE RECALL · Production", javascript)
-        self.assertIn("RECOGNITION · Comprehension", javascript)
-        self.assertIn("CONTEXT RECALL · Usage", javascript)
-        self.assertIn("Русские слова и контекст", javascript)
+        self.assertIn("01 · Recognition Boost · Multiple Choice", javascript)
+        self.assertIn("02 · Recognition · Comprehension", javascript)
+        self.assertIn("03 · Context Recall · Usage", javascript)
+        self.assertIn("04 · Active Recall · Production", javascript)
+        self.assertIn('id="preview-multiple-choice-options"', html)
+        self.assertIn('id="space-new-siblings" type="checkbox" checked', html)
+        self.assertIn("space_new_siblings", javascript)
+        self.assertIn("Русские слова, контекст и фраза", javascript)
+        self.assertIn('class="greek-phrase-column"', html)
+        self.assertIn("Сгенерировать автоматически", javascript)
         self.assertIn("context-audio", javascript)
 
 
@@ -274,6 +345,12 @@ class CardPreviewTests(unittest.TestCase):
         self.assertIn("const previewTemplates", javascript)
         self.assertIn("function openTemplatePreview", javascript)
         self.assertTrue(sample_image.is_file())
+
+    def test_greek_is_selected_by_default_in_web_interface(self):
+        project_root = Path(__file__).parents[1]
+        html = (project_root / "generator" / "webui" / "templates" / "index.html").read_text()
+
+        self.assertIn('<option value="greek" selected>Ελληνικά</option>', html)
 
 
 class OpenAIModelSettingsTests(unittest.TestCase):
