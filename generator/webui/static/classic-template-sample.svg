@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 640" role="img" aria-labelledby="title description">
+  <title id="title">Дороги как символ свободы выбора</title>
+  <desc id="description">Три тропы расходятся от одной точки среди зелёных холмов.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d9efe8"/>
+      <stop offset="1" stop-color="#f8edc9"/>
+    </linearGradient>
+    <linearGradient id="hill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#72966b"/>
+      <stop offset="1" stop-color="#294e3c"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="640" fill="url(#sky)"/>
+  <circle cx="792" cy="118" r="62" fill="#f4c96f" opacity=".9"/>
+  <path d="M0 360Q190 250 390 352T760 335T1024 310V640H0Z" fill="#9eb28a"/>
+  <path d="M0 455Q260 330 480 455T1024 395V640H0Z" fill="url(#hill)"/>
+  <path d="M500 640C490 530 438 453 245 361C365 390 484 424 518 493C557 421 659 358 794 313C606 427 566 526 560 640Z" fill="#ead9aa"/>
+  <path d="M517 493C457 405 420 319 383 205C475 316 518 388 532 463C570 383 640 294 738 227C622 345 565 423 543 493Z" fill="#f3e5bc"/>
+  <g fill="#244737">
+    <path d="M132 430l32-105 32 105z"/><rect x="159" y="420" width="10" height="55"/>
+    <path d="M850 385l39-130 39 130z"/><rect x="884" y="375" width="11" height="68"/>
+    <path d="M70 478l25-83 25 83z"/><rect x="91" y="470" width="8" height="43"/>
+  </g>
+</svg>

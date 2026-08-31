@@ -2,7 +2,7 @@ import argparse
 import logging
 
 import generator.input.file_operations
-from generator.entities import WordWithContext, CardRawDataV1
+from generator.entities import CardData, WordWithContext, source_word_for_card
 from generator.input import read_input_file
 from generator.anki import anki_importer, anki_operations
 from generator.config import Config
@@ -15,10 +15,12 @@ def process_existing_cards(input_words: list[WordWithContext]) -> list[str]:
     input_words_without_context: list[str] = list(map(lambda word_with_context: word_with_context.word, filtered_words))
 
     logging.info("Processing existing cards")
-    cards_in_directory: list[CardRawDataV1] = generator.input.file_operations.cards_in_directory(Config.PROCESSING_DIRECTORY_PATH)
-    relevant_cards_in_directory: list[CardRawDataV1] = [card for card in cards_in_directory if card.word in input_words_without_context]
-    existing_cards_validated: list[CardRawDataV1] = validation.discard_invalid_cards(Config.PROCESSING_DIRECTORY_PATH, relevant_cards_in_directory)
-    existing_cards_data: dict[WordWithContext, CardRawDataV1] = entities.cards_to_dict(existing_cards_validated)
+    cards_in_directory: list[CardData] = generator.input.file_operations.cards_in_directory(Config.PROCESSING_DIRECTORY_PATH)
+    relevant_cards_in_directory: list[CardData] = [
+        card for card in cards_in_directory if source_word_for_card(card) in input_words_without_context
+    ]
+    existing_cards_validated: list[CardData] = validation.discard_invalid_cards(Config.PROCESSING_DIRECTORY_PATH, relevant_cards_in_directory)
+    existing_cards_data: dict[WordWithContext, CardData] = entities.cards_to_dict(existing_cards_validated)
     anki_importer.import_card_collection(existing_cards_data)
     logging.info("All existing cards processed")
 
@@ -28,7 +30,7 @@ def process_existing_cards(input_words: list[WordWithContext]) -> list[str]:
 
 def process_new_cards(input_words: list[WordWithContext]):
     filtered_words: list[WordWithContext] = validation.filter_words_are_present_in_deck(Config.DECK_NAME, input_words)
-    generated_cards_data: dict[WordWithContext, CardRawDataV1] = generate_cards.generate_text_and_image(filtered_words)
+    generated_cards_data: dict[WordWithContext, CardData] = generate_cards.generate_text_and_image(filtered_words)
     logging.info("Card generation completed")
     anki_importer.import_card_collection(generated_cards_data)
     logging.info("Import in Anki completed")
@@ -51,10 +53,11 @@ def main():
 
     # Optional arguments
     parser.add_argument('--openai_api_key', type=str, help="API key for OpenAI. If not set, the value from environment variable OPENAI_API_KEY is used", default=None)
+    parser.add_argument('--text_model', type=str, help="OpenAI model used to generate card text and image prompts", default=Config.DEFAULT_TEXT_MODEL)
     parser.add_argument('--deck_name', type=str, help="Name of the Anki deck. If not set, the default name is generated", default=None)
     parser.add_argument('--anki_media_directory_path', type=str, help="Path to the Anki media directory. If not set, the standard path for each OS is used", default=None)
     parser.add_argument('--language', type=str, help="Target card language. Not only the card translation, customized generation process for each language", default=Config.DEFAULT_LANGUAGE, choices=Config.SUPPORTED_LANGUAGES)
-    parser.add_argument("--level", type=str, help="Current language level, that should be used for card creation to avoid overcomplicated cards for beginners and vice versa", default=Config.DEFAULT_LEVEL, choices=Config.SUPPORTED_LEVELS)
+    parser.add_argument("--level", type=str, help="Current language level, that should be used for card creation to avoid overcomplicated cards for beginners and vice versa", default=None, choices=Config.SUPPORTED_LEVELS)
     parser.add_argument("--card_model", type=str, help="Available model names depend on anki client language. If default model name is not available in your client (or you want to use a custom model) - use this parameter", default=Config.DEFAULT_CARD_MODEL)
 
     parser.add_argument('--image_generation_mode', type=str, help="Use alternative image generation mode (e.g to use a cheaper model with Replicate)", default=Config.DEFAULT_IMAGE_GENERATION_MODE, choices=Config.SUPPORTED_IMAGE_GENERATION_MODES)
@@ -67,6 +70,7 @@ def main():
     # Setup config
     Config.setup_logging()
     Config.set_openai_key_or_use_default(args.openai_api_key)
+    Config.set_text_model_or_use_default(args.text_model)
     Config.set_image_generation_mode_or_use_default(args.image_generation_mode)
     Config.set_replicate_token_and_url_if_replicate_mode_used(args.replicate_api_key, args.replicate_model_url)
     Config.set_anki_deck_name_or_use_default(args.deck_name)
@@ -80,6 +84,10 @@ def main():
     validation.check_anki_connect()
     validation.check_whether_deck_exists()
     validation.check_language()
+    if Config.LANGUAGE == "greek":
+        from generator.anki import greek_vocabulary_model
+
+        Config.CARD_MODEL = greek_vocabulary_model.ensure_model()
     input_words: list[WordWithContext] = read_input_file.read_file_based_on_extension(args.input_file)
 
     # Processing

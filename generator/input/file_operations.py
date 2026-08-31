@@ -1,3 +1,5 @@
+import base64
+import binascii
 import json
 import logging
 import os
@@ -7,10 +9,10 @@ import requests
 
 from generator.config import Config
 
-from generator.entities import CardRawDataV1, WordWithContext, word_to_filename
+from generator.entities import CardData, WordWithContext, card_data_from_dict, word_to_filename
 
 
-def cards_in_directory(processing_directory: str) -> list[CardRawDataV1]:
+def cards_in_directory(processing_directory: str) -> list[CardData]:
     return read_json_files_as_objects(processing_directory)
 
 
@@ -24,7 +26,7 @@ def read_json_files_as_objects(directory):
     for file_path in files:
         with open(file_path, 'r', encoding='utf-8') as file:
             data = json.load(file)
-            obj = CardRawDataV1(**data)
+            obj = card_data_from_dict(data)
             objects.append(obj)
     return objects
 
@@ -47,7 +49,24 @@ def generate_audio_path(processing_directory_path: str, word: WordWithContext) -
     return os.path.join(processing_directory_path, word_to_filename(word) + ".mp3")
 
 
+def generate_context_audio_path(processing_directory_path: str, word: WordWithContext) -> str:
+    return os.path.join(processing_directory_path, word_to_filename(word) + "_context.mp3")
+
+
 def download_and_save_image(url, image_path):
+    if url.startswith("data:image/"):
+        header, separator, encoded_image = url.partition(",")
+        if not separator or ";base64" not in header:
+            raise IOError("Unsupported inline image format")
+        try:
+            image_bytes = base64.b64decode(encoded_image, validate=True)
+        except (binascii.Error, ValueError) as error:
+            raise IOError("Failed to decode inline image data") from error
+        with open(image_path, 'wb') as file:
+            file.write(image_bytes)
+        logging.info(f"Image saved as {image_path}")
+        return
+
     response = requests.get(url)
     if response.status_code == 200:
         with open(image_path, 'wb') as f:

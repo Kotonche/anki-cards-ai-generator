@@ -13,7 +13,7 @@ def normalize_columns(df):
 
 
 def check_columns(df):
-    required_columns = {'word', 'context'}
+    required_columns = {'word'}
     if not required_columns.issubset(df.columns):
         missing_cols = required_columns - set(df.columns)
         raise ValueError(f"Missing required columns: {', '.join(missing_cols)}")
@@ -29,7 +29,8 @@ def read_from_dataframe(df) -> list[WordWithContext]:
             continue
         word = row['word'].strip()
         context = row['context'].strip() if 'context' in row and not pd.isna(row['context']) else ""
-        words_with_context.append(WordWithContext(word, context))
+        phrase = row['phrase'].strip() if 'phrase' in row and not pd.isna(row['phrase']) else ""
+        words_with_context.append(WordWithContext(word, context, phrase))
     return words_with_context
 
 

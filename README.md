@@ -17,9 +17,10 @@ Workflow:
 ### Supported Languages
 - English (with [Cambridge Dictionary](https://dictionary.cambridge.org/))
 - German (with [DWDS](https://www.dwds.de/))
+- Greek (A1-A2; dictionary links are not configured yet)
 
 ### Language Levels
-You can choose a CERF language level for card generation: A1, A2, B1, B2, C1, C2.
+For English and German, you can choose a CEFR language level from A1 to C2. Greek currently supports A1 and A2.
 
 Note, that not all words can be explained at the beginner levels. 
 
@@ -31,7 +32,7 @@ Afterward, Anki can be synchronized with AnkiWeb, and the deck can be used from 
 The synchronization is very straightforward, and is described [here](https://docs.ankiweb.net/syncing.html).
 
 ## Prerequisites
-1. This is an application that automates Anki cards creation process using the ChatGPT, DALLE and TTS models. Your [OpenAI API](https://platform.openai.com/api-keys) key is required. You can set environment variable OPENAI_API_KEY (.env is supported) or use --openai_api_key option.
+1. This is an application that automates Anki cards creation process using OpenAI text, image and TTS models. Your [OpenAI API](https://platform.openai.com/api-keys) key is required. You can set environment variable OPENAI_API_KEY (.env is supported) or use --openai_api_key option.
    1. You can also choose to use cheaper models for image generation (e.g stable-diffusion) via Replicate. To use Replicate, the options --image_generation_mode, --replicate_api_key and --replicate_model_url must be set. You can also use environment variable REPLICATE_API_TOKEN.
 2. [Anki](https://apps.ankiweb.net/) must be installed.
 3. Add-on [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is used for the import of the cards. It must be installed. AnkiConnect website contains short installation guide.
@@ -42,14 +43,49 @@ The synchronization is very straightforward, and is described [here](https://doc
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/valeriizhyla)
 ## Usage
 
+### Local web interface
+
+The browser interface runs only on your computer and keeps API keys in the Python process. It lets you enter an OpenAI API key and choose the text model, supports pasted word lists and CSV, TXT, XLS, and XLSX files, includes an always-available static template preview plus front/back previews for generated cards, reuses complete generated files, and can import the result through AnkiConnect. During a batch it also shows the estimated total API spend and average cost per newly processed word; cached cards add no new API cost.
+
+1. Create and activate a Python 3.10+ virtual environment.
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Start Anki with AnkiConnect installed if you want to import cards.
+4. Start the interface:
+   ```bash
+   python -m generator.webui.server
+   ```
+
+The page opens at [http://127.0.0.1:8766](http://127.0.0.1:8766). You can also use `run_web_ui.sh` on macOS/Linux or `run_web_ui.cmd` on Windows.
+
+The first web version runs one generation job at a time. Closing the browser does not stop the active job, but restarting the Python server clears the in-memory job list. Generated JSON, PNG, and MP3 files remain in the processing directory and will be reused on the next run.
+
+#### Greek Vocabulary template
+
+When `Ελληνικά` is selected, enter words in Russian. You can optionally provide both a meaning context and the exact Russian example phrase you want to study. The model translates a supplied phrase into natural modern Greek; when the phrase is empty, it creates an A1/A2 example automatically. The generator creates one versioned `Greek Vocabulary` note with up to four independently scheduled cards:
+
+- `01 · Recognition Boost · Multiple Choice`: Russian meaning and image → one correct Greek word among four shuffled options.
+- `02 · Recognition · Comprehension`: Greek word with article → Russian meaning.
+- `03 · Context Recall · Usage`: Greek sentence with a blank → typed Greek answer.
+- `04 · Active Recall · Production`: Russian meaning and image → Greek word with article.
+
+The note also stores a Russian phonetic transcription, a complete A1/A2 example, word audio with the article, separate phrase audio, and three same-level distractors with transcriptions. If the complete context block cannot be generated, the context card is omitted. If the distractor block is incomplete or invalid, the multiple-choice card is omitted. Notes receive the shared tags `greek`, `greek-vocabulary`, `ai-generated`, `level::a1`/`level::a2`, the Greek word, and a Russian source tag.
+
+The importer reuses an existing compatible versioned note type but never overwrites an incompatible one; it creates the next version instead. By default, the web UI enables Anki's **Bury new siblings** option in a deck-specific cloned preset and uses template-order sorting. This introduces the four new sibling cards in `01 → 02 → 03 → 04` order on separate days without coupling their later ratings or intervals. Audio fields use Anki's normal replay buttons. Disable **Automatically play audio** in the deck options if you do not want Anki to play them automatically. Card 3 uses Anki's standard typed-answer comparison; [AnkiWeb does not display typed-answer boxes](https://docs.ankiweb.net/templates/fields.html#checking-your-answer), while supported desktop and mobile clients show the native comparison.
+
+### Command line
+
 Syntax:  
 ```bash
 read-generate-import.py input_file processing_directory \
           [-h] \
           [--openai_api_key OPENAI_API_KEY] \
+          [--text_model TEXT_MODEL] \
           [--deck_name DECK_NAME] \
           [--anki_media_directory_path ANKI_MEDIA_DIRECTORY_PATH] \
-          [--language {english,german}] \
+          [--language {english,german,greek}] \
           [--level {A1,A2,B1,B2,C1,C2}] \
           [--card_model CARD_MODEL] \
           [--image_generation_mode {openai,replicate}] \
@@ -67,6 +103,7 @@ Defaults are:
 - Language is English
 - Level is C1
 - OpenAI API key is and expected to be set in environment variable OPENAI_API_KEY
+- Text and image-prompt model is gpt-5.6-luna
 - Deck name is autogenerated, containing current date
 - Default Anki media directory path for Windows, Linux and MacOS
 - Card model "Basic (type in the answer)"
@@ -78,6 +115,7 @@ python -m generator.read-generate-import ./demo/input_words.csv ./processing  \
           --language="german" \
           --level="B2" \
           --openai_api_key="YOUR_OPENAPI_KEY" \
+          --text_model="gpt-5.6-terra" \
           --deck_name="my_amazing_deck" \
           --anki_media_directory_path="custom_path/Anki2/User/collection.media" \
           --card_model="Basic" \
@@ -91,22 +129,20 @@ You can adjust and use the [run_generator.cmd](run_generator.cmd) for Windows or
 ### Input
 This tool reads a file as input.
 It can be a CSV file with semicolon as separator (you can use commas in sentences and context), or an Excel file.
-Header "word;context" is expected.
+The `word` column is required. `context` and `phrase` are optional. For Greek vocabulary, `phrase` is the desired Russian example sentence; leave it empty to generate an example automatically.
 Example:
 ```csv
-word;context
-tax fraud;
-purchasing power parity;economy
-affect;
-consciousness;the state of human being
-free will;
+word;context;phrase
+дверь;дом;Открой дверь, пожалуйста.
+сыр;;Я хочу немного сыра.
+встречаться;друзья;
 ```
 
 ### Output
 Card materials are created in the specified directory. 
 Tool creates for each word:
 - json with card text, paths and links
-- png with generated image (via Dalle3 from OpenAI or via custom model from Replicate)
+- png with generated image (via GPT Image 2 from OpenAI or via custom model from Replicate)
 - mp3 with generated audio
 - dictionary link (if the link was found)
 
@@ -117,9 +153,9 @@ An example input file, generated elements and card screenshots can be found in [
 Examples for different language levels can be found in [Levels Demo](demo/different_levels).  
 
 ## OpenAI API
-Text: [gpt-4o](https://platform.openai.com/docs/models/gpt-4o)  
-Image: [dall-e-3](https://platform.openai.com/docs/guides/images/usage), 3 RPM, 200 RPD - main throughput limitation  
-Audio: [tts-1-hd](https://platform.openai.com/docs/guides/text-to-speech)  
+Text and image prompts: configurable with `--text_model` or in the web interface; defaults to [GPT-5.6 Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna)
+Image: [GPT Image 2](https://developers.openai.com/api/docs/models/gpt-image-2), 1024×1024, low quality
+Audio: [GPT-4o mini TTS](https://developers.openai.com/api/docs/models/gpt-4o-mini-tts), using the recommended `marin` voice and language-specific pronunciation instructions
 
 ## Replicate API
 Reference image model: [stable-diffusion](https://replicate.com/stability-ai/stable-diffusion)  
@@ -128,12 +164,12 @@ You can use other Replicate model using --replicate_model_url option
 ### Cost
 Billing: https://platform.openai.com/settings/organization/billing/overview
 
-DALLE-3 call is the most expensive step, 0.04$ per image. This is expensive compared with free images, but:
+GPT Image 2 is billed by tokens. With the current 1024×1024 low-quality setting, image output costs approximately $0.006, plus the text prompt input. Standard rates are $5/$1.25 per 1M text input/cached tokens and $8/$2/$30 per 1M image input/cached/output tokens. This can be expensive compared with free images, but:
 - Sometimes it is really difficult to find an image that describes some abstract content.
 - These images boost (at least mine) learning process a lot
-- Cards are much better than DALLE-2 cards in this use case
+- Purpose-generated images work especially well for abstract vocabulary in this use case
 
-Text generation is much cheaper, less than 0.01$ per card. Total cost of a card is <= 0.05$ pro card.
+Text generation price depends on the selected model. GPT-4o mini TTS costs $0.60 per 1M text input tokens and $12 per 1M audio output tokens; English and German voice the target word, while Greek voices both the word with its article and the example phrase. Current rates, a pre-generation estimate, and the running batch total are shown directly in the web interface and on the [official pricing page](https://developers.openai.com/api/docs/pricing). The batch total uses returned API token usage when available. Because the Speech endpoint returns audio without token usage, its TTS amount is estimated from the instruction/input length and expected spoken duration; image cost is also estimated when usage is unavailable. It is an estimate rather than an OpenAI billing statement; unknown third-party provider costs are explicitly excluded.
 
 Alternatively, you can use a custom model for image generation from Replicate, potentially cutting the costs of image generation to a fraction of cent. 
 
@@ -217,4 +253,3 @@ A: Probably you are using a CSV file, which is not separated with semicolon (thi
 *****
 Q: I'm getting an error "model was not found: Basic (type in the answer)".  
 A: Probably you are using some old version of Anki, non-english client or have deleted the default models. You can set your custom model name using --card_model option. More about [Anki Note Types](https://docs.ankiweb.net/getting-started.html#note-types)
-

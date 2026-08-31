@@ -1,12 +1,9 @@
 import logging
 
 import replicate
-from openai import OpenAI
 
+from ..api_costs import record_unknown_cost
 from ..config import Config
-from ..entities import WordWithContext
-
-client = OpenAI()
 
 
 def replicate_generate_image(prompt: str) -> str:
@@ -28,5 +25,6 @@ def replicate_generate_image(prompt: str) -> str:
     print(output)
 
     image_url = output[0]
+    record_unknown_cost("image", f"Replicate · {Config.REPLICATE_MODEL_URL}")
     logging.debug(f"Replicate generated image URL: {image_url}")
     return image_url

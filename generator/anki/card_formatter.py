@@ -2,7 +2,7 @@ import os
 
 from . import anki_operations
 from ..config import Config
-from ..entities import CardRawDataV1
+from ..entities import CardData, CardRawDataV1, GreekVocabularyDataV1
 
 
 def get_front_html(card_data: CardRawDataV1) -> str:
@@ -115,7 +115,57 @@ def get_back_html(card_data: CardRawDataV1) -> str:
     """
 
 
-def format(card_data: CardRawDataV1, deck_name: str):
+def format_greek_vocabulary(card_data: GreekVocabularyDataV1, deck_name: str):
+    image = f'<img src="{os.path.basename(card_data.image_path)}">' if card_data.image_path else ""
+    audio = f"[sound:{os.path.basename(card_data.audio_path)}]" if card_data.audio_path else ""
+    context_audio = (
+        f"[sound:{os.path.basename(card_data.context_audio_path)}]"
+        if card_data.context_audio_path
+        else ""
+    )
+    return {
+        "deckName": deck_name,
+        "modelName": Config.CARD_MODEL,
+        "fields": {
+            "Word": card_data.word,
+            "Article": card_data.article,
+            "Transcription": card_data.transcription,
+            "Translation": card_data.translation,
+            "Image": image,
+            "Audio": audio,
+            "ContextGreek": card_data.context_greek,
+            "ContextTranscription": card_data.context_transcription,
+            "ContextRussian": card_data.context_russian,
+            "ContextCloze": card_data.context_cloze,
+            "ContextClozeTranscription": card_data.context_cloze_transcription,
+            "ContextAnswer": card_data.context_answer,
+            "ContextAudio": context_audio,
+            "Distractor1": card_data.distractor1,
+            "Distractor1Transcription": card_data.distractor1_transcription,
+            "Distractor2": card_data.distractor2,
+            "Distractor2Transcription": card_data.distractor2_transcription,
+            "Distractor3": card_data.distractor3,
+            "Distractor3Transcription": card_data.distractor3_transcription,
+        },
+        "options": {
+            "allowDuplicate": True,
+            "duplicateScope": "deck",
+        },
+        "tags": [
+            anki_operations.word_to_tag(card_data.word),
+            anki_operations.source_word_to_tag(card_data.source_word),
+            "greek",
+            "greek-vocabulary",
+            "ai-generated",
+            f"level::{Config.LEVEL.lower()}",
+        ],
+    }
+
+
+def format(card_data: CardData, deck_name: str):
+    if isinstance(card_data, GreekVocabularyDataV1):
+        return format_greek_vocabulary(card_data, deck_name)
+
     # Ensure sentences end with a new line in HTML and handle text styling
     front_content = get_front_html(card_data)
     back_content = get_back_html(card_data)

@@ -1,19 +1,26 @@
 import logging
 import time
 
-from generator.api_calls import openai_image, openai_text, openai_audio, openai_image_prompt, replicate_image
+from generator.api_calls import greek_vocabulary, openai_image, openai_text, openai_audio, openai_image_prompt, replicate_image
 from generator.dictionaries import dictionaries
-from generator.config import Config, OPENAI, REPLICATE
-from generator.entities import WordWithContext, CardRawDataV1, serialize_to_json
-from generator.input.file_operations import save_text, generate_image_path, generate_card_data_path, download_and_save_image, generate_audio_path
+from generator.config import Config, GREEK, OPENAI, REPLICATE
+from generator.entities import CardData, WordWithContext, CardRawDataV1, GreekVocabularyDataV1, serialize_to_json
+from generator.input.file_operations import (
+    download_and_save_image,
+    generate_audio_path,
+    generate_card_data_path,
+    generate_context_audio_path,
+    generate_image_path,
+    save_text,
+)
 from generator.input.confirm import confirm_action
 
-def generate_text_and_image(input_words: list[WordWithContext]) -> dict[WordWithContext, CardRawDataV1]:
+def generate_text_and_image(input_words: list[WordWithContext]) -> dict[WordWithContext, CardData]:
     words_total = len(input_words)
     words_remaining = words_total
 
     logging.info(f"Starting generation of text and images for {words_total} words {list(map(lambda entry: entry.word, input_words))}")
-    words_cards: dict[WordWithContext, CardRawDataV1] = {}
+    words_cards: dict[WordWithContext, CardData] = {}
 
     for word_with_context in input_words:
         try:
@@ -33,18 +40,24 @@ def generate_text_and_image(input_words: list[WordWithContext]) -> dict[WordWith
     return words_cards
 
 
-def create_card_for_word(word_with_context) -> CardRawDataV1:
+def create_card_for_word(word_with_context) -> CardData:
+    if Config.LANGUAGE == GREEK:
+        return create_greek_vocabulary_for_word(word_with_context)
+
     card_text = openai_text.chat_generate_text(word_with_context)
     logging.info("Card text is created")
 
-    image_prompt = openai_image_prompt.chat_generate_dalle_prompt(word_with_context, card_text)
-    image_url = get_image_url_depending_on_image_generation_mode(image_prompt)
+    image_prompt = openai_image_prompt.chat_generate_image_prompt(word_with_context, card_text)
+    image_source = get_image_url_depending_on_image_generation_mode(image_prompt)
 
     logging.info("Card Image is created")
-    logging.info(f"Image url: {image_url}")
+    if image_source.startswith("data:image/"):
+        logging.info("Image source: inline OpenAI image data")
+    else:
+        logging.info(f"Image URL: {image_source}")
 
     image_path = generate_image_path(Config.PROCESSING_DIRECTORY_PATH, word_with_context)
-    download_and_save_image(image_url, image_path)
+    download_and_save_image(image_source, image_path)
     logging.info(f"Card image is saved as [{image_path}]")
 
     audio_path = generate_audio_path(Config.PROCESSING_DIRECTORY_PATH, word_with_context)
@@ -57,13 +70,113 @@ def create_card_for_word(word_with_context) -> CardRawDataV1:
     else:
         logging.warning(f"Dictionary url is not created")
 
+    image_reference = (
+        f"openai:{Config.OPENAI_IMAGE_MODEL}"
+        if image_source.startswith("data:image/")
+        else image_source
+    )
     card_raw: CardRawDataV1 = CardRawDataV1(word=word_with_context.word, card_text=card_text,
-                                            image_prompt=image_prompt, image_url=image_url, image_path=image_path,
+                                            image_prompt=image_prompt, image_url=image_reference, image_path=image_path,
                                             audio_path=audio_path,
                                             dictionary_url=dictionary_url)
     card_data_path = generate_card_data_path(Config.PROCESSING_DIRECTORY_PATH, word_with_context)
     save_text(serialize_to_json(card_raw), card_data_path)
     logging.info(f"Card data is saved as [{card_data_path}]")
+    return card_raw
+
+
+def _clean_generated_value(data: dict, name: str) -> str:
+    value = data.get(name, "")
+    return value.strip() if isinstance(value, str) else ""
+
+
+def _normalized_greek_context(data: dict) -> dict[str, str]:
+    names = [
+        "context_greek",
+        "context_transcription",
+        "context_russian",
+        "context_cloze",
+        "context_cloze_transcription",
+        "context_answer",
+    ]
+    context = {name: _clean_generated_value(data, name) for name in names}
+    if not all(context.values()):
+        logging.warning("Greek context is incomplete; only Production and Recognition cards will be created")
+        return {name: "" for name in names}
+    return context
+
+
+def _normalized_greek_distractors(data: dict, article: str, word: str) -> dict[str, str]:
+    names = [
+        "distractor1",
+        "distractor1_transcription",
+        "distractor2",
+        "distractor2_transcription",
+        "distractor3",
+        "distractor3_transcription",
+    ]
+    distractors = {name: _clean_generated_value(data, name) for name in names}
+    if not all(distractors.values()):
+        logging.warning("Greek distractors are incomplete; Multiple Choice card will not be created")
+        return {name: "" for name in names}
+
+    normalize = lambda value: " ".join(value.casefold().split())
+    correct_answer = normalize(" ".join(part for part in (article, word) if part))
+    wrong_answers = [normalize(distractors[f"distractor{index}"]) for index in range(1, 4)]
+    if len(set(wrong_answers)) != 3 or correct_answer in wrong_answers:
+        logging.warning("Greek distractors are duplicated or contain the correct answer; Multiple Choice card will not be created")
+        return {name: "" for name in names}
+    return distractors
+
+
+def create_greek_vocabulary_for_word(word_with_context: WordWithContext) -> GreekVocabularyDataV1:
+    generated = greek_vocabulary.chat_generate_vocabulary(word_with_context)
+    context = _normalized_greek_context(generated)
+
+    article = _clean_generated_value(generated, "article")
+    word = _clean_generated_value(generated, "word")
+    distractors = _normalized_greek_distractors(generated, article, word)
+
+    image_prompt = _clean_generated_value(generated, "image_prompt")
+    image_source = get_image_url_depending_on_image_generation_mode(image_prompt)
+    image_path = generate_image_path(Config.PROCESSING_DIRECTORY_PATH, word_with_context)
+    download_and_save_image(image_source, image_path)
+
+    spoken_word = " ".join(part for part in (article, word) if part)
+    audio_path = generate_audio_path(Config.PROCESSING_DIRECTORY_PATH, word_with_context)
+    openai_audio.chat_generate_and_save_audio(spoken_word, audio_path)
+
+    context_audio_path = ""
+    if context["context_greek"]:
+        candidate_path = generate_context_audio_path(Config.PROCESSING_DIRECTORY_PATH, word_with_context)
+        try:
+            openai_audio.chat_generate_and_save_audio(context["context_greek"], candidate_path)
+            context_audio_path = candidate_path
+        except Exception:
+            logging.exception("Failed to generate Greek context audio; continuing without it")
+
+    image_reference = (
+        f"openai:{Config.OPENAI_IMAGE_MODEL}"
+        if image_source.startswith("data:image/")
+        else image_source
+    )
+    card_raw = GreekVocabularyDataV1(
+        source_word=word_with_context.word,
+        word=word,
+        article=article,
+        transcription=_clean_generated_value(generated, "transcription"),
+        translation=_clean_generated_value(generated, "translation"),
+        image_prompt=image_prompt,
+        image_url=image_reference,
+        image_path=image_path,
+        audio_path=audio_path,
+        context_audio_path=context_audio_path,
+        **context,
+        **distractors,
+    )
+    card_data_path = generate_card_data_path(Config.PROCESSING_DIRECTORY_PATH, word_with_context)
+    save_text(serialize_to_json(card_raw), card_data_path)
+    logging.info("Greek vocabulary data is saved as [%s]", card_data_path)
     return card_raw
 
 
@@ -77,6 +190,6 @@ def get_image_url_depending_on_image_generation_mode(image_prompt):
 
 
 def wait_after_word_processing():
-    sleep_seconds = Config.SECONDS_WAIT_BETWEEN_DALLE_CALLS
+    sleep_seconds = Config.SECONDS_WAIT_BETWEEN_IMAGE_CALLS
     logging.info(f"Waiting [{sleep_seconds}] seconds after word processing (API RPM)")
     time.sleep(sleep_seconds)

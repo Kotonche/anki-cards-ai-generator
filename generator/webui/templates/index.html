@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>Anki Card Studio</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/app.js" defer></script>
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="/" aria-label="Anki Card Studio">
+            <span class="brand-mark">A</span>
+            <span>
+                <strong>Anki Card Studio</strong>
+                <small>Локальный генератор карточек</small>
+            </span>
+        </a>
+        <div class="health-row" aria-live="polite">
+            <span id="dependency-status" class="status-pill status-neutral">Проверка Python…</span>
+            <span id="anki-status" class="status-pill status-neutral">Проверка Anki…</span>
+        </div>
+    </header>
+
+    <main class="page-shell">
+        <section class="intro">
+            <div>
+                <p class="eyebrow">Работает только на вашем компьютере</p>
+                <h1>Превратите список слов<br>в готовую колоду Anki</h1>
+                <p class="intro-copy">Добавьте слова, настройте генерацию и следите за каждой карточкой прямо в браузере.</p>
+            </div>
+            <div class="flow-strip" aria-label="Этапы обработки">
+                <span><b>01</b> Слова</span>
+                <i>→</i>
+                <span><b>02</b> Генерация</span>
+                <i>→</i>
+                <span><b>03</b> Anki</span>
+            </div>
+        </section>
+
+        <div id="global-error" class="alert alert-error" role="alert" hidden></div>
+
+        <section class="workspace-grid">
+            <article class="panel input-panel">
+                <div class="panel-heading">
+                    <div>
+                        <p class="step-label">Шаг 1</p>
+                        <h2>Добавьте слова</h2>
+                    </div>
+                    <button id="example-button" class="button button-quiet" type="button">Пример</button>
+                </div>
+
+                <label class="drop-zone" for="file-input">
+                    <input id="file-input" type="file" accept=".csv,.txt,.xls,.xlsx">
+                    <span class="drop-icon">↥</span>
+                    <strong>Выберите CSV, TXT или Excel</strong>
+                    <small id="file-label">До 10 МБ · колонки word, context и phrase</small>
+                </label>
+
+                <div class="or-divider"><span>или вставьте вручную</span></div>
+
+                <label class="field">
+                    <span id="words-input-label">Слова и контекст</span>
+                    <textarea id="words-input" rows="8" placeholder="purchasing power;economics&#10;consciousness;philosophy&#10;free will"></textarea>
+                    <small id="words-input-help">Одно слово на строку. Контекст можно добавить после точки с запятой.</small>
+                </label>
+
+                <button id="parse-button" class="button button-secondary button-wide" type="button">Подготовить карточки</button>
+            </article>
+
+            <article class="panel settings-panel">
+                <div class="panel-heading">
+                    <div>
+                        <p class="step-label">Шаг 2</p>
+                        <h2>Настройте генерацию</h2>
+                    </div>
+                    <button id="template-preview-button" class="button button-quiet" type="button">Предпросмотр карточки</button>
+                </div>
+
+                <div class="form-grid">
+                    <label class="field">
+                        <span>Язык</span>
+                        <select id="language">
+                            <option value="english">English</option>
+                            <option value="german">Deutsch</option>
+                            <option value="greek" selected>Ελληνικά</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>Уровень</span>
+                        <select id="level">
+                            <option>A1</option><option>A2</option><option>B1</option><option>B2</option>
+                            <option selected>C1</option><option>C2</option>
+                        </select>
+                    </label>
+                    <label class="field field-full">
+                        <span>Название колоды</span>
+                        <input id="deck-name" value="AI Vocabulary" autocomplete="off">
+                    </label>
+                    <label class="field">
+                        <span>Изображения</span>
+                        <select id="image-mode">
+                            <option value="openai">OpenAI</option>
+                            <option value="replicate">Replicate</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>Дубликаты</span>
+                        <select id="duplicate-policy">
+                            <option value="skip">Пропускать</option>
+                            <option value="replace">Заменять</option>
+                            <option value="allow">Разрешать</option>
+                        </select>
+                    </label>
+                    <section class="provider-card field-full" aria-labelledby="openai-settings-title">
+                        <div class="provider-heading">
+                            <div>
+                                <strong id="openai-settings-title">OpenAI</strong>
+                                <small>Ключ не сохраняется на диск</small>
+                            </div>
+                            <span class="provider-badge">Текст · медиа</span>
+                        </div>
+                        <div class="provider-fields">
+                            <label class="field">
+                                <span>API key</span>
+                                <input id="openai-key" type="password" placeholder="Оставьте пустым, чтобы использовать .env" autocomplete="off" spellcheck="false">
+                            </label>
+                            <label class="field">
+                                <span>Модель текста</span>
+                                <select id="text-model">
+                                    <optgroup label="GPT-5.6 · актуальные">
+                                        <option value="gpt-5.6-luna" selected>GPT-5.6 Luna · экономичная</option>
+                                        <option value="gpt-5.6-terra">GPT-5.6 Terra · баланс</option>
+                                        <option value="gpt-5.6-sol">GPT-5.6 Sol · максимум качества</option>
+                                    </optgroup>
+                                    <optgroup label="Другие поддерживаемые">
+                                        <option value="gpt-5.4-nano">GPT-5.4 nano · простые задачи</option>
+                                        <option value="gpt-5.4-mini">GPT-5.4 mini · быстро</option>
+                                        <option value="gpt-4.1-mini">GPT-4.1 mini · без reasoning</option>
+                                        <option value="gpt-4.1">GPT-4.1 · без reasoning</option>
+                                        <option value="gpt-4o-mini">GPT-4o mini · предыдущая</option>
+                                        <option value="gpt-4o">GPT-4o · прежний дефолт</option>
+                                    </optgroup>
+                                    <option value="__custom__">Другой ID модели…</option>
+                                </select>
+                            </label>
+                            <label id="custom-text-model-field" class="field provider-custom-model" hidden>
+                                <span>Свой ID модели</span>
+                                <input id="custom-text-model" type="text" placeholder="Например, model-name-snapshot" autocomplete="off" spellcheck="false">
+                            </label>
+                        </div>
+                        <small class="provider-note">Luna подходит для массовой генерации карточек; Terra и Sol дают больше качества за более высокую цену. Доступность зависит от вашего API-проекта.</small>
+
+                        <section class="pricing-panel" aria-labelledby="pricing-title">
+                            <div class="pricing-heading">
+                                <div>
+                                    <strong id="pricing-title">Стоимость API</strong>
+                                    <small>Standard · обновлено 23.08.2026</small>
+                                </div>
+                                <a href="https://developers.openai.com/api/docs/pricing" target="_blank" rel="noreferrer">Официальные цены ↗</a>
+                            </div>
+
+                            <section class="card-cost-estimate" aria-labelledby="card-cost-title" aria-live="polite">
+                                <div class="cost-total">
+                                    <span id="card-cost-title">Примерно за 1 новую карточку</span>
+                                    <strong id="card-cost-total">≈ $0.0084</strong>
+                                    <small id="card-cost-summary">GPT-5.6 Luna · изображение OpenAI · GPT-4o mini TTS</small>
+                                </div>
+                                <div class="cost-breakdown" aria-label="Состав оценки">
+                                    <div><span id="card-cost-text-label">Текст · 2 вызова</span><strong id="card-cost-text">≈ $0.0011</strong></div>
+                                    <div><span>Изображение</span><strong id="card-cost-image">≈ $0.0070</strong></div>
+                                    <div><span>Аудио</span><strong id="card-cost-audio">≈ $0.00035</strong></div>
+                                </div>
+                                <small id="card-cost-assumptions" class="cost-assumptions">Оценка: 2 500 входных + 500 выходных/reasoning-токенов текста, 200 токенов image prompt, ≈ 53 входных + 26 аудиотокенов TTS. Без кэша.</small>
+                            </section>
+
+                            <div class="pricing-grid">
+                                <article class="price-tile">
+                                    <span>Текст · <b id="text-price-model">GPT-5.6 Luna</b></span>
+                                    <strong id="text-price-value">$0.20 / $0.02 / $1.20</strong>
+                                    <small id="text-price-note">Вход / кэш / выход · за 1 млн токенов</small>
+                                </article>
+                                <article class="price-tile">
+                                    <span>Изображение · <b id="image-price-model">GPT Image 2</b></span>
+                                    <strong id="image-price-value">≈ $0.006 за изображение</strong>
+                                    <small id="image-price-note">1024×1024 · low, плюс вход prompt. Текст: $5 / $1.25; изображение: $8 / $2 / $30 за 1 млн токенов.</small>
+                                </article>
+                                <article class="price-tile">
+                                    <span>Аудио · <b>GPT-4o mini TTS</b></span>
+                                    <strong>$0.60 / $12 за 1 млн токенов</strong>
+                                    <small id="audio-price-note">Текстовый вход / аудиовыход; голос Marin. В карточке озвучивается только слово</small>
+                                </article>
+                            </div>
+
+                            <details class="pricing-details">
+                                <summary>Сравнить все текстовые модели</summary>
+                                <div class="pricing-table-wrap">
+                                    <table class="pricing-table">
+                                        <thead>
+                                            <tr><th>Модель</th><th>Вход</th><th>Кэш</th><th>Выход</th></tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr><td>GPT-5.6 Luna</td><td>$0.20</td><td>$0.02</td><td>$1.20</td></tr>
+                                            <tr><td>GPT-5.6 Terra</td><td>$2.00</td><td>$0.20</td><td>$12.00</td></tr>
+                                            <tr><td>GPT-5.6 Sol <sup>*</sup></td><td>$4.00</td><td>$0.40</td><td>$20.00</td></tr>
+                                            <tr><td>GPT-5.4 nano</td><td>$0.20</td><td>$0.02</td><td>$1.25</td></tr>
+                                            <tr><td>GPT-5.4 mini</td><td>$0.75</td><td>$0.075</td><td>$4.50</td></tr>
+                                            <tr><td>GPT-4.1 mini</td><td>$0.40</td><td>$0.10</td><td>$1.60</td></tr>
+                                            <tr><td>GPT-4.1</td><td>$2.00</td><td>$0.50</td><td>$8.00</td></tr>
+                                            <tr><td>GPT-4o mini</td><td>$0.15</td><td>$0.075</td><td>$0.60</td></tr>
+                                            <tr><td>GPT-4o</td><td>$2.50</td><td>$1.25</td><td>$10.00</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <small class="pricing-footnote">USD за 1 млн токенов, Standard. <sup>*</sup> Для GPT-5.6 Sol действует промоцена как минимум до 21.11.2026.</small>
+                            </details>
+                        </section>
+                    </section>
+                    <div id="replicate-settings" class="subform field-full" hidden>
+                        <label class="field">
+                            <span>Replicate API key</span>
+                            <input id="replicate-key" type="password" placeholder="Можно использовать .env" autocomplete="off">
+                        </label>
+                        <label class="field">
+                            <span>Replicate model URL</span>
+                            <input id="replicate-model" placeholder="owner/model:version" autocomplete="off">
+                        </label>
+                    </div>
+                    <details class="advanced field-full">
+                        <summary>Пути и расширенные настройки</summary>
+                        <div class="advanced-content">
+                            <label class="field">
+                                <span>Рабочая папка</span>
+                                <input id="processing-directory" autocomplete="off">
+                            </label>
+                            <label class="field">
+                                <span>Папка Anki media</span>
+                                <input id="anki-media-directory" autocomplete="off">
+                            </label>
+                            <label class="field">
+                                <span>Тип заметки Anki</span>
+                                <input id="card-model" value="Basic (type in the answer)" autocomplete="off">
+                                <small id="card-model-note">Используется для английских и немецких карточек.</small>
+                            </label>
+                        </div>
+                    </details>
+                </div>
+
+                <div class="toggle-list">
+                    <label class="toggle-row">
+                        <input id="create-deck" type="checkbox" checked>
+                        <span><strong>Создать колоду, если её нет</strong><small>Через локальный AnkiConnect</small></span>
+                    </label>
+                    <label class="toggle-row">
+                        <input id="import-after" type="checkbox" checked>
+                        <span><strong>Импортировать после генерации</strong><small>Иначе файлы останутся в рабочей папке</small></span>
+                    </label>
+                    <label id="sibling-spacing-row" class="toggle-row">
+                        <input id="space-new-siblings" type="checkbox" checked>
+                        <span><strong>Разносить новые sibling-карточки</strong><small>Одна новая карточка этой Note в день; интервалы и ratings остаются независимыми</small></span>
+                    </label>
+                </div>
+                <p id="greek-audio-note" class="setup-note" hidden>В шаблоне нет автозапуска. Если Anki всё равно проигрывает звук автоматически, отключите «Automatically play audio» в настройках выбранной колоды.</p>
+            </article>
+        </section>
+
+        <section id="queue-section" class="panel queue-panel" hidden>
+            <div class="queue-header">
+                <div>
+                    <p class="step-label">Шаг 3</p>
+                    <h2>Очередь карточек <span id="card-count" class="count-badge">0</span></h2>
+                </div>
+                <div class="queue-actions">
+                    <button id="cancel-button" class="button button-danger" type="button" hidden>Остановить</button>
+                    <button id="start-button" class="button button-primary" type="button">Создать карточки</button>
+                </div>
+            </div>
+
+            <div id="progress-area" class="progress-area" hidden>
+                <div class="progress-copy">
+                    <strong id="job-message">Подготовка…</strong>
+                    <span id="progress-label">0 из 0</span>
+                </div>
+                <progress id="job-progress" max="100" value="0">0%</progress>
+                <section id="batch-cost-summary" class="batch-cost-summary" aria-label="Стоимость текущего батча" hidden>
+                    <div class="batch-cost-total">
+                        <span>TOTAL за батч</span>
+                        <strong id="batch-cost-total">$0.0000</strong>
+                        <small id="batch-cost-note">Расчёт появится во время обработки</small>
+                    </div>
+                    <div class="batch-cost-metrics">
+                        <div>
+                            <span>В среднем</span>
+                            <strong id="batch-cost-average">—</strong>
+                        </div>
+                        <div>
+                            <span>Обработки</span>
+                            <strong id="batch-cost-counts">—</strong>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Слово</th>
+                            <th>Контекст</th>
+                            <th class="greek-phrase-column">Русская фраза <span class="muted">· необязательно</span></th>
+                            <th>Статус</th>
+                            <th><span class="visually-hidden">Действия</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="cards-body"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <dialog id="preview-dialog" class="preview-dialog" aria-labelledby="preview-dialog-title">
+        <div class="dialog-header">
+            <div>
+                <p class="step-label">Anki template</p>
+                <h2 id="preview-dialog-title">Предпросмотр карточки</h2>
+            </div>
+            <button id="close-preview" class="icon-button" type="button" aria-label="Закрыть">×</button>
+        </div>
+
+        <div class="preview-toolbar">
+            <div class="preview-toolbar-controls">
+                <label class="template-picker">
+                    <span>Шаблон</span>
+                    <select id="preview-template" aria-label="Шаблон карточки">
+                        <option value="classic">Классический</option>
+                        <option value="greek-vocabulary">Greek Vocabulary · 4 карточки</option>
+                    </select>
+                </label>
+                <label id="preview-card-type-field" class="template-picker card-type-picker" hidden>
+                    <span>Карточка</span>
+                    <select id="preview-card-type" aria-label="Тип карточки"></select>
+                </label>
+                <div class="side-switcher" role="tablist" aria-label="Сторона карточки">
+                    <button class="side-button is-active" data-preview-side="front" type="button" role="tab" aria-selected="true">Лицевая сторона</button>
+                    <button class="side-button" data-preview-side="back" type="button" role="tab" aria-selected="false">Оборотная сторона</button>
+                </div>
+            </div>
+            <small id="preview-model-note">Статичный пример макета — сгенерированные данные будут другими</small>
+        </div>
+
+        <div class="anki-preview-stage">
+            <div id="anki-preview-card" class="anki-preview-card">
+                <div class="anki-preview-inner">
+                    <section id="preview-front" class="anki-card-face anki-card-front" aria-label="Лицевая сторона карточки">
+                        <span class="face-label">Front</span>
+                        <div id="preview-classic-front">
+                            <div id="preview-front-image-wrap" class="anki-card-image">
+                                <img id="preview-front-image" src="/static/classic-template-sample.svg" alt="Пример иллюстрации о свободе выбора">
+                            </div>
+                            <hr class="anki-divider">
+                            <p id="preview-front-text" class="anki-card-text">Something that allows people to make choices independently is known as ____ ___. Philosophers debate whether ____ ___ truly exists or whether our decisions are predetermined.</p>
+                            <hr class="anki-divider">
+                            <div class="anki-hints">
+                                <a id="preview-dictionary" class="text-link" href="https://dictionary.cambridge.org/dictionary/english/free-will" target="_blank" rel="noreferrer">Dictionary ↗</a>
+                                <span id="preview-audio-placeholder" class="audio-placeholder" aria-label="Пример кнопки аудио">▶ Audio</span>
+                                <audio id="preview-audio" controls hidden></audio>
+                            </div>
+                            <label class="answer-preview">
+                                <span>Введите ответ</span>
+                                <input type="text" placeholder="Ваш ответ…" readonly aria-label="Поле ответа в Anki">
+                            </label>
+                        </div>
+
+                        <div id="preview-greek-front" class="greek-preview" hidden>
+                            <section data-greek-card="production">
+                                <span class="greek-preview-skill-badge">ACTIVE RECALL · PRODUCTION</span>
+                                <div class="greek-preview-image" data-greek-image-wrap><img data-greek-image alt="Пример изображения для греческой карточки"></div>
+                                <strong class="greek-preview-translation" data-greek-field="translation"></strong>
+                                <p class="greek-preview-prompt">Как по-гречески?</p>
+                            </section>
+                            <section data-greek-card="recognition" hidden>
+                                <span class="greek-preview-skill-badge">RECOGNITION · COMPREHENSION</span>
+                                <p class="greek-preview-transcription" data-greek-field="transcription"></p>
+                                <strong class="greek-preview-word" data-greek-field="full_word"></strong>
+                                <div class="greek-preview-audio" data-greek-word-audio-wrap>
+                                    <span class="audio-placeholder" data-greek-word-audio-placeholder>▶ Слово</span>
+                                    <audio controls data-greek-word-audio hidden></audio>
+                                </div>
+                                <p class="greek-preview-prompt">Что это значит?</p>
+                            </section>
+                            <section data-greek-card="context" hidden>
+                                <span class="greek-preview-skill-badge">CONTEXT RECALL · USAGE</span>
+                                <p class="greek-preview-transcription" data-greek-field="context_cloze_transcription"></p>
+                                <p class="greek-preview-sentence" data-greek-field="context_cloze"></p>
+                                <strong class="greek-preview-context-hint" data-greek-field="translation"></strong>
+                                <label class="answer-preview">
+                                    <span>Введите пропущенное слово</span>
+                                    <input type="text" placeholder="Ваш ответ…" readonly aria-label="Поле ответа в Anki">
+                                </label>
+                            </section>
+                            <section data-greek-card="multiple-choice" hidden>
+                                <span class="greek-preview-skill-badge">RECOGNITION BOOST · MULTIPLE CHOICE</span>
+                                <div class="greek-preview-image greek-preview-mc-image" data-greek-image-wrap><img data-greek-image alt="Пример изображения для Multiple Choice"></div>
+                                <strong class="greek-preview-translation greek-preview-mc-translation" data-greek-field="translation"></strong>
+                                <p class="greek-preview-prompt">Как это по-гречески?</p>
+                                <div id="preview-multiple-choice-options" class="greek-preview-choices">
+                                    <button class="greek-preview-choice" type="button" data-preview-choice data-correct="true">
+                                        <span data-greek-field="transcription"></span>
+                                        <strong data-greek-field="full_word"></strong>
+                                    </button>
+                                    <button class="greek-preview-choice" type="button" data-preview-choice data-correct="false">
+                                        <span data-greek-field="distractor1_transcription"></span>
+                                        <strong data-greek-field="distractor1"></strong>
+                                    </button>
+                                    <button class="greek-preview-choice" type="button" data-preview-choice data-correct="false">
+                                        <span data-greek-field="distractor2_transcription"></span>
+                                        <strong data-greek-field="distractor2"></strong>
+                                    </button>
+                                    <button class="greek-preview-choice" type="button" data-preview-choice data-correct="false">
+                                        <span data-greek-field="distractor3_transcription"></span>
+                                        <strong data-greek-field="distractor3"></strong>
+                                    </button>
+                                </div>
+                            </section>
+                        </div>
+                    </section>
+
+                    <section id="preview-back" class="anki-card-face anki-card-back" aria-label="Оборотная сторона карточки">
+                        <span class="face-label">Back</span>
+                        <div id="preview-classic-back">
+                            <div class="back-context">
+                                <div id="preview-back-image-wrap" class="back-thumbnail">
+                                    <img id="preview-back-image" src="/static/classic-template-sample.svg" alt="Пример иллюстрации о свободе выбора">
+                                </div>
+                                <p id="preview-back-text" class="anki-card-text">Something that allows people to make choices independently is known as ____ ___. Philosophers debate whether ____ ___ truly exists or whether our decisions are predetermined.</p>
+                            </div>
+                            <hr class="answer-divider">
+                            <p class="answer-caption">Правильный ответ</p>
+                            <strong id="preview-back-word" class="back-answer">free will</strong>
+                        </div>
+
+                        <div id="preview-greek-back" class="greek-preview" hidden>
+                            <section data-greek-card="production">
+                                <span class="greek-preview-skill-badge">ACTIVE RECALL · PRODUCTION</span>
+                                <p class="greek-preview-transcription" data-greek-field="transcription"></p>
+                                <strong class="greek-preview-word" data-greek-field="full_word"></strong>
+                                <div class="greek-preview-audio" data-greek-word-audio-wrap>
+                                    <span class="audio-placeholder" data-greek-word-audio-placeholder>▶ Слово</span>
+                                    <audio controls data-greek-word-audio hidden></audio>
+                                </div>
+                                <div class="greek-preview-context" data-greek-context>
+                                    <p class="greek-preview-transcription" data-greek-field="context_transcription"></p>
+                                    <p class="greek-preview-sentence" data-greek-field="context_greek"></p>
+                                    <p class="greek-preview-russian" data-greek-field="context_russian"></p>
+                                    <div class="greek-preview-audio" data-greek-context-audio-wrap>
+                                        <span class="audio-placeholder" data-greek-context-audio-placeholder>▶ Фраза</span>
+                                        <audio controls data-greek-context-audio hidden></audio>
+                                    </div>
+                                </div>
+                            </section>
+                            <section data-greek-card="recognition" hidden>
+                                <span class="greek-preview-skill-badge">RECOGNITION · COMPREHENSION</span>
+                                <strong class="greek-preview-translation" data-greek-field="translation"></strong>
+                                <div class="greek-preview-image" data-greek-image-wrap><img data-greek-image alt="Пример изображения для греческой карточки"></div>
+                                <div class="greek-preview-context" data-greek-context>
+                                    <p class="greek-preview-transcription" data-greek-field="context_transcription"></p>
+                                    <p class="greek-preview-sentence" data-greek-field="context_greek"></p>
+                                    <p class="greek-preview-russian" data-greek-field="context_russian"></p>
+                                    <div class="greek-preview-audio" data-greek-context-audio-wrap>
+                                        <span class="audio-placeholder" data-greek-context-audio-placeholder>▶ Фраза</span>
+                                        <audio controls data-greek-context-audio hidden></audio>
+                                    </div>
+                                </div>
+                            </section>
+                            <section data-greek-card="context" hidden>
+                                <span class="greek-preview-skill-badge">CONTEXT RECALL · USAGE</span>
+                                <p class="answer-caption">Правильный ответ</p>
+                                <p class="greek-preview-transcription" data-greek-field="transcription"></p>
+                                <strong class="greek-preview-word" data-greek-field="context_answer"></strong>
+                                <div class="greek-preview-audio" data-greek-word-audio-wrap>
+                                    <span class="audio-placeholder" data-greek-word-audio-placeholder>▶ Слово</span>
+                                    <audio controls data-greek-word-audio hidden></audio>
+                                </div>
+                                <div class="greek-preview-context" data-greek-context>
+                                    <p class="greek-preview-transcription" data-greek-field="context_transcription"></p>
+                                    <p class="greek-preview-sentence" data-greek-field="context_greek"></p>
+                                    <p class="greek-preview-russian" data-greek-field="context_russian"></p>
+                                    <div class="greek-preview-audio" data-greek-context-audio-wrap>
+                                        <span class="audio-placeholder" data-greek-context-audio-placeholder>▶ Фраза</span>
+                                        <audio controls data-greek-context-audio hidden></audio>
+                                    </div>
+                                </div>
+                            </section>
+                            <section data-greek-card="multiple-choice" hidden>
+                                <span class="greek-preview-skill-badge">RECOGNITION BOOST · MULTIPLE CHOICE</span>
+                                <p class="greek-preview-transcription" data-greek-field="transcription"></p>
+                                <strong class="greek-preview-word" data-greek-field="full_word"></strong>
+                                <div class="greek-preview-audio" data-greek-word-audio-wrap>
+                                    <span class="audio-placeholder" data-greek-word-audio-placeholder>▶ Слово</span>
+                                    <audio controls data-greek-word-audio hidden></audio>
+                                </div>
+                                <div class="greek-preview-context" data-greek-context>
+                                    <p class="greek-preview-transcription" data-greek-field="context_transcription"></p>
+                                    <p class="greek-preview-sentence" data-greek-field="context_greek"></p>
+                                    <p class="greek-preview-russian" data-greek-field="context_russian"></p>
+                                </div>
+                            </section>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <div class="preview-actions">
+            <button id="flip-preview" class="button button-secondary" type="button">Показать оборотную сторону</button>
+        </div>
+    </dialog>
+</body>
+</html>
